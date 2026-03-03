@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Selvam Medicals — Login</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg, #1a237e 0%, #0d47a1 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+    .login-card { background: white; border-radius: 16px; padding: 40px; width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+    .logo { text-align: center; margin-bottom: 30px; }
+    .logo h1 { color: #1a237e; font-size: 26px; }
+    .logo p { color: #666; font-size: 13px; margin-top: 4px; }
+    .form-group { margin-bottom: 18px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 6px; }
+    input { width: 100%; padding: 12px 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; transition: border-color 0.2s; }
+    input:focus { outline: none; border-color: #1a237e; }
+    .btn { width: 100%; padding: 13px; background: #1a237e; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 6px; }
+    .btn:hover { background: #283593; }
+    .error { color: #c62828; font-size: 13px; margin-top: 10px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <div class="logo">
+      <h1>💊 Selvam Medicals</h1>
+      <p>Medical Shop Management System</p>
+    </div>
+    <div class="form-group">
+      <label>Username</label>
+      <input type="text" id="username" placeholder="Enter your username" />
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="password" placeholder="Enter your password" />
+    </div>
+    <button class="btn" onclick="login()">Login</button>
+    <div class="error" id="error-msg"></div>
+  </div>
+
+  <script>
+    const API = "http://localhost:8000/api";
+    async function login() {
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
+      const form = new URLSearchParams();
+      form.append("username", username);
+      form.append("password", password);
+      try {
+        const res = await fetch(`${API}/security/login`, { method: "POST", headers: {"Content-Type": "application/x-www-form-urlencoded"}, body: form });
+        const data = await res.json();
+        if (res.ok) {
+          localStorage.setItem("token", data.access_token);
+          localStorage.setItem("role", data.role);
+          localStorage.setItem("name", data.name);
+          window.location.href = "dashboard.html";
+        } else {
+          document.getElementById("error-msg").textContent = data.detail || "Login failed";
+        }
+      } catch (e) {
+        document.getElementById("error-msg").textContent = "Cannot connect to server";
+      }
+    }
+    document.getElementById("password").addEventListener("keydown", e => { if(e.key === "Enter") login(); });
+  </script>
+</body>
+</html>

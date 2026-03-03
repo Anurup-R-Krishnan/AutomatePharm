@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Billing — Selvam Medicals</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f5f6fa; }
+    .navbar { background: #1a237e; color: white; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; }
+    .navbar h1 { font-size: 18px; }
+    .navbar a { color: white; text-decoration: none; margin-left: 16px; font-size: 14px; }
+    .container { padding: 24px; display: grid; grid-template-columns: 1fr 360px; gap: 20px; }
+    .billing-section, .summary-section { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    h2 { color: #1a237e; font-size: 15px; margin-bottom: 16px; }
+    .search-bar { display: flex; gap: 10px; margin-bottom: 16px; }
+    .search-bar input { flex: 1; padding: 10px 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; }
+    .search-bar input:focus { outline: none; border-color: #1a237e; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: #e8eaf6; padding: 10px 12px; text-align: left; color: #1a237e; font-weight: 600; }
+    td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; }
+    td input[type="number"] { width: 70px; padding: 5px 8px; border: 1px solid #ddd; border-radius: 4px; }
+    .btn-remove { background: #ffebee; color: #c62828; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    .form-row { display: flex; gap: 10px; margin-bottom: 12px; }
+    .form-row label { font-size: 12px; color: #666; margin-bottom: 4px; display: block; }
+    .form-row input, .form-row select { width: 100%; padding: 9px 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 13px; }
+    .form-row > div { flex: 1; }
+    .total-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px solid #eee; }
+    .total-row.final { font-weight: 700; font-size: 18px; color: #1a237e; border-bottom: none; margin-top: 6px; }
+    .btn-bill { width: 100%; padding: 14px; background: #2e7d32; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 16px; }
+    .btn-bill:hover { background: #388e3c; }
+    .suggestions { position: absolute; background: white; border: 1px solid #ddd; border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 100; width: 300px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .suggestion-item { padding: 10px 14px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #f5f5f5; }
+    .suggestion-item:hover { background: #e8eaf6; }
+    .search-wrapper { position: relative; flex: 1; }
+  </style>
+</head>
+<body>
+  <div class="navbar">
+    <h1>💊 Selvam Medicals — Billing</h1>
+    <div><a href="dashboard.html">Dashboard</a><a href="billing.html">New Bill</a></div>
+  </div>
+  <div class="container">
+    <div class="billing-section">
+      <h2>🛒 Add Items</h2>
+      <div class="search-bar">
+        <div class="search-wrapper">
+          <input type="text" id="med-search" placeholder="Search medicine by name or barcode..." oninput="searchMedicine(this.value)" autocomplete="off" />
+          <div class="suggestions" id="suggestions" style="display:none"></div>
+        </div>
+      </div>
+      <table id="items-table">
+        <thead><tr><th>#</th><th>Medicine</th><th>Batch</th><th>MRP</th><th>Qty</th><th>GST%</th><th>Amount</th><th></th></tr></thead>
+        <tbody id="items-body"><tr><td colspan="8" style="text-align:center;color:#999;padding:30px">No items added. Search above to add medicines.</td></tr></tbody>
+      </table>
+    </div>
+    <div class="summary-section">
+      <h2>👤 Customer & Payment</h2>
+      <div class="form-row">
+        <div><label>Customer Name</label><input type="text" id="cust-name" placeholder="Walk-in Customer" /></div>
+      </div>
+      <div class="form-row">
+        <div><label>Phone</label><input type="text" id="cust-phone" placeholder="Mobile number" /></div>
+      </div>
+      <div class="form-row">
+        <div><label>Discount (₹)</label><input type="number" id="discount" value="0" min="0" oninput="updateSummary()" /></div>
+        <div><label>Payment Mode</label>
+          <select id="payment-mode">
+            <option value="cash">💵 Cash</option>
+            <option value="upi">📱 UPI</option>
+            <option value="card">💳 Card</option>
+            <option value="credit">📋 Credit</option>
+          </select>
+        </div>
+      </div>
+      <hr style="margin: 16px 0; border-color: #eee;" />
+      <h2>🧾 Bill Summary</h2>
+      <div class="total-row"><span>Subtotal</span><span id="subtotal">₹0.00</span></div>
+      <div class="total-row"><span>GST</span><span id="gst-total">₹0.00</span></div>
+      <div class="total-row"><span>Discount</span><span id="discount-display">-₹0.00</span></div>
+      <div class="total-row final"><span>TOTAL</span><span id="grand-total">₹0.00</span></div>
+      <button class="btn-bill" onclick="createBill()">🖨️ Generate Bill</button>
+    </div>
+  </div>
+
+  <script>
+    const API = "http://localhost:8000/api";
+    const token = localStorage.getItem("token");
+    if (!token) window.location.href = "index.html";
+    const headers = { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" };
+    let cartItems = [];
+
+    async function searchMedicine(q) {
+      if (!q || q.length < 2) { document.getElementById("suggestions").style.display = "none"; return; }
+      const res = await fetch(`${API}/inventory/search?q=${encodeURIComponent(q)}`, {headers});
+      const data = await res.json();
+      const box = document.getElementById("suggestions");
+      box.innerHTML = data.map(m => `<div class="suggestion-item" onclick='addToCart(${JSON.stringify(m)})'>${m.name} <span style="color:#888;font-size:11px">${m.batch_no || ""} | MRP: ₹${m.mrp} | Stock: ${m.stock_qty}</span></div>`).join("");
+      box.style.display = data.length ? "block" : "none";
+    }
+
+    function addToCart(med) {
+      document.getElementById("suggestions").style.display = "none";
+      document.getElementById("med-search").value = "";
+      const existing = cartItems.find(i => i.medicine_id === med.id);
+      if (existing) { existing.qty++; } 
+      else { cartItems.push({ medicine_id: med.id, name: med.name, batch_no: med.batch_no, mrp: med.mrp, rate: med.selling_price || med.mrp, gst_percent: med.gst_percent || 12, qty: 1 }); }
+      renderCart();
+    }
+
+    function renderCart() {
+      const tbody = document.getElementById("items-body");
+      if (!cartItems.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#999;padding:30px">No items added.</td></tr>'; updateSummary(); return; }
+      tbody.innerHTML = cartItems.map((item, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td>${item.name}</td>
+          <td>${item.batch_no || "—"}</td>
+          <td>₹${item.rate.toFixed(2)}</td>
+          <td><input type="number" value="${item.qty}" min="1" onchange="updateQty(${i}, this.value)" /></td>
+          <td>${item.gst_percent}%</td>
+          <td>₹${((item.rate * item.qty) * (1 + item.gst_percent / 100)).toFixed(2)}</td>
+          <td><button class="btn-remove" onclick="removeItem(${i})">✕</button></td>
+        </tr>`).join("");
+      updateSummary();
+    }
+
+    function updateQty(i, val) { cartItems[i].qty = parseInt(val) || 1; renderCart(); }
+    function removeItem(i) { cartItems.splice(i, 1); renderCart(); }
+
+    function updateSummary() {
+      let sub = 0, gst = 0;
+      cartItems.forEach(i => { const t = i.rate * i.qty; sub += t; gst += t * (i.gst_percent / 100); });
+      const discount = parseFloat(document.getElementById("discount").value) || 0;
+      document.getElementById("subtotal").textContent = `₹${sub.toFixed(2)}`;
+      document.getElementById("gst-total").textContent = `₹${gst.toFixed(2)}`;
+      document.getElementById("discount-display").textContent = `-₹${discount.toFixed(2)}`;
+      document.getElementById("grand-total").textContent = `₹${(sub + gst - discount).toFixed(2)}`;
+    }
+
+    async function createBill() {
+      if (!cartItems.length) { alert("Please add at least one item."); return; }
+      const payload = {
+        customer_name: document.getElementById("cust-name").value || "Walk-in Customer",
+        customer_phone: document.getElementById("cust-phone").value || "",
+        items: cartItems.map(i => ({ medicine_id: i.medicine_id, qty: i.qty })),
+        discount: parseFloat(document.getElementById("discount").value) || 0,
+        payment_mode: document.getElementById("payment-mode").value
+      };
+      const res = await fetch(`${API}/billing/create`, { method: "POST", headers, body: JSON.stringify(payload) });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`✅ Invoice Created!
+Invoice No: ${data.invoice_no}
+Total: ₹${data.total.toFixed(2)}`);
+        cartItems = [];
+        renderCart();
+        document.getElementById("cust-name").value = "";
+        document.getElementById("cust-phone").value = "";
+        document.getElementById("discount").value = "0";
+      } else {
+        alert("Error: " + (data.detail || "Billing failed"));
+      }
+    }
+    document.addEventListener("click", e => { if(!e.target.closest(".search-wrapper")) document.getElementById("suggestions").style.display="none"; });
+  </script>
+</body>
+</html>

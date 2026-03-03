@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard — Selvam Medicals</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f5f6fa; color: #333; }
+    .navbar { background: #1a237e; color: white; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; }
+    .navbar h1 { font-size: 18px; }
+    .navbar .nav-links a { color: white; text-decoration: none; margin-left: 20px; font-size: 14px; padding: 6px 12px; border-radius: 6px; transition: background 0.2s; }
+    .navbar .nav-links a:hover { background: rgba(255,255,255,0.2); }
+    .container { padding: 24px; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .card h3 { font-size: 13px; color: #888; margin-bottom: 8px; text-transform: uppercase; }
+    .card .value { font-size: 28px; font-weight: 700; }
+    .card.blue .value { color: #1a237e; }
+    .card.green .value { color: #2e7d32; }
+    .card.orange .value { color: #e65100; }
+    .card.red .value { color: #c62828; }
+    .alerts { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .alert-item { padding: 10px 14px; border-radius: 8px; margin-bottom: 8px; font-size: 14px; }
+    .alert-item.warning { background: #fff3e0; border-left: 4px solid #ff6f00; }
+    .alert-item.danger { background: #ffebee; border-left: 4px solid #c62828; }
+    h2 { font-size: 16px; margin-bottom: 14px; color: #1a237e; }
+  </style>
+</head>
+<body>
+  <div class="navbar">
+    <h1>💊 Selvam Medicals</h1>
+    <div class="nav-links">
+      <a href="dashboard.html">Dashboard</a>
+      <a href="billing.html">Billing</a>
+      <a href="#inventory">Inventory</a>
+      <a href="#reports">Reports</a>
+      <a onclick="logout()" href="#">Logout</a>
+    </div>
+  </div>
+  <div class="container">
+    <div class="cards">
+      <div class="card blue"><h3>Today's Sales</h3><div class="value" id="today-sales">₹0</div></div>
+      <div class="card green"><h3>Monthly Revenue</h3><div class="value" id="month-sales">₹0</div></div>
+      <div class="card orange"><h3>Low Stock Items</h3><div class="value" id="low-stock">0</div></div>
+      <div class="card red"><h3>Expiry Alerts</h3><div class="value" id="expiry-alerts">0</div></div>
+    </div>
+    <div class="alerts">
+      <h2>⚠️ Alerts</h2>
+      <div id="alerts-container"><p>Loading alerts...</p></div>
+    </div>
+  </div>
+  <script>
+    const API = "http://localhost:8000/api";
+    const token = localStorage.getItem("token");
+    if (!token) window.location.href = "index.html";
+    const headers = { "Authorization": `Bearer ${token}` };
+
+    async function loadDashboard() {
+      try {
+        const [sales, lowStock, expiry] = await Promise.all([
+          fetch(`${API}/reports/daily-sales`, {headers}).then(r=>r.json()),
+          fetch(`${API}/inventory/low-stock`, {headers}).then(r=>r.json()),
+          fetch(`${API}/inventory/expiry-alert?days=90`, {headers}).then(r=>r.json())
+        ]);
+        document.getElementById("today-sales").textContent = `₹${(sales.total_sales||0).toLocaleString()}`;
+        document.getElementById("low-stock").textContent = lowStock.count || 0;
+        document.getElementById("expiry-alerts").textContent = expiry.count || 0;
+
+        const container = document.getElementById("alerts-container");
+        container.innerHTML = "";
+        (lowStock.items||[]).slice(0,5).forEach(item => {
+          container.innerHTML += `<div class="alert-item warning">📦 <b>${item.name}</b> — Only ${item.stock_qty} units left (Reorder level: ${item.reorder_level})</div>`;
+        });
+        (expiry.items||[]).slice(0,5).forEach(item => {
+          container.innerHTML += `<div class="alert-item danger">⏰ <b>${item.name}</b> — Expires on ${item.expiry_date}</div>`;
+        });
+        if(!container.innerHTML) container.innerHTML = '<p style="color:#4caf50">✅ All clear! No urgent alerts.</p>';
+      } catch(e) { console.error(e); }
+    }
+    function logout() { localStorage.clear(); window.location.href="index.html"; }
+    loadDashboard();
+  </script>
+</body>
+</html>
