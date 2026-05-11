@@ -39,3 +39,4 @@ instance/
 dist/
 build/
 *.egg-info/
+SELVAM_MEDICALS fc/
