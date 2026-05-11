@@ -44,6 +44,10 @@ from .purchase import (
 )
 
 
+# Reorder
+from .reorder import ReorderRequest, ReorderItem
+
+
 # GST / Finance
 from .finance import GstTransaction, Expense
 

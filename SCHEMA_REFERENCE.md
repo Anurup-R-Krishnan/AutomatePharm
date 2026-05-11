@@ -44,19 +44,24 @@ Transaction handling for inward goods.
 - `PurchaseInvoiceItem`: Line items linked to incoming stock.
 - `PurchasePayment`, `PurchaseReturn`, `PurchaseReturnItem`.
 
-### 6. HR & Staff
+### 6. Reorder Automation
+**File:** [`backend/models/reorder.py`](backend/models/reorder.py)
+- `ReorderRequest`: Header record for supplier reorders (source, status, channel, timestamps).
+- `ReorderItem`: Line items with custom requested quantities and stock snapshot.
+
+### 7. HR & Staff
 **File:** [`backend/models/hr.py`](backend/models/hr.py)
 - `Salesman`: Staff profiles.
 - `AttendanceLog`: Check-in/out logs.
 - `SalesmanLedger`: Commission and salary tracking.
 
-### 7. AI & Machine Learning
+### 8. AI & Machine Learning
 **File:** [`backend/models/ai.py`](backend/models/ai.py)
 - `AiFaceLog`: Logs of facial recognition events.
 - `PrescriptionOcrLog`: Logs of OCR processing on uploaded prescriptions.
 - `CustomerPurchasePattern`, `SeleniumOrderLog`, `WantedList`.
 
-### 8. System & Finance
+### 9. System & Finance
 **Files:** [`backend/models/system.py`](backend/models/system.py), [`backend/models/finance.py`](backend/models/finance.py)
 - `SystemSetting`: Key-value store for SMS templates and configs.
 - `SmsLog`, `AuditLog`.
@@ -89,6 +94,13 @@ The API is structured to maintain a backward-compatible JSON interface while int
 **File:** [`backend/routes/purchases.py`](backend/routes/purchases.py)
 - `GET /api/purchases`: Retrieves `PurchaseInvoice` records with supplier details.
 - `POST /api/purchases`: Creates a `PurchaseInvoice` and `PurchaseInvoiceItem`s. Automatically creates missing items and stock batches.
+
+### Reorders API
+**File:** [`backend/routes/reorders.py`](backend/routes/reorders.py)
+- `GET /api/reorders`: Lists reorder requests with supplier details and status.
+- `GET /api/reorders/low-stock`: Returns low stock items with supplier options for reorder.
+- `POST /api/reorders/request`: Creates reorder requests from custom supplier and qty selections.
+- `POST /api/reorders/status`: Updates reorder status from n8n/Twilio callbacks.
 
 ### Masters API (Customers, Suppliers, Doctors)
 **File:** [`backend/routes/masters.py`](backend/routes/masters.py)
