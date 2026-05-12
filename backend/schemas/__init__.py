@@ -16,10 +16,8 @@ from .core import (
 from .hr import SalesmanSchema, AttendanceLogSchema, SalesmanLedgerSchema
 from .inventory import StockBatchSchema, StockLedgerSchema, ExpiryAlertSchema
 
-from .ai import (
-    AiFaceLogSchema, PrescriptionOcrLogSchema,
-    CustomerPurchasePatternSchema, SeleniumOrderLogSchema, WantedListSchema
-)
+# AI / ML
+# (AI schemas removed)
 
 from .sales import (
     SalesBillSchema, SalesBillItemSchema, ApprovalLogSchema,
