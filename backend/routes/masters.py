@@ -134,7 +134,6 @@ def get_customers():
                 ),
                 "address": row.address or "",
                 "email": "",
-                "face_vector": json.dumps(row.face_embedding.tolist()) if row.face_embedding is not None else "",
                 "balance": float(row.outstanding_balance or 0),
             }
             for row in rows
@@ -163,14 +162,6 @@ def add_customer():
         customer.is_active = True
         if "balance" in data:
             customer.outstanding_balance = float(data.get("balance", 0) or 0)
-        
-        if "face_vector" in data and data["face_vector"]:
-            try:
-                vector_list = json.loads(data["face_vector"])
-                if isinstance(vector_list, list) and len(vector_list) == 128:
-                    customer.face_embedding = vector_list
-            except (json.JSONDecodeError, ValueError):
-                pass
 
         db.session.commit()
         return jsonify({"status": "success"})
