@@ -73,7 +73,7 @@ jobs:
 
             - name: Apply migrations
               run: |
-                  flask db upgrade
+                  flask db upgrade heads
 
             - name: Run API smoke tests
               run: |
