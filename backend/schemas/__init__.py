@@ -24,7 +24,7 @@ from .ai import (
 from .sales import (
     SalesBillSchema, SalesBillItemSchema, ApprovalLogSchema,
     PrescriptionRegisterSchema, SalesReturnSchema,
-    SalesReturnItemSchema, ReceiptPaymentSchema
+    SalesReturnItemSchema, ReceiptPaymentSchema, BillingVoucherSchema
 )
 
 from .purchase import (

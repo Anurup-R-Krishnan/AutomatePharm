@@ -33,7 +33,7 @@ from .ai import (
 # Sales / Billing
 from .sales import (
     SalesBill, SalesBillItem, ApprovalLog, PrescriptionRegister,
-    SalesReturn, SalesReturnItem, ReceiptPayment
+    SalesReturn, SalesReturnItem, ReceiptPayment, BillingVoucher
 )
 
 

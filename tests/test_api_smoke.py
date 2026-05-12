@@ -186,6 +186,109 @@ def test_bill_lifecycle(client):
     assert get_json(bill_delete)["status"] == "success"
 
 
+def test_billing_mockup_backends(client):
+    medicine_id = unique_id("m", 9)
+    medicine_name = f"Cancel Medicine {medicine_id[-4:]}"
+
+    med_create = client.post(
+        "/api/medicines",
+        json={
+            "id": medicine_id,
+            "n": medicine_name,
+            "g": "Paracetamol",
+            "c": "Tablet",
+            "p": 55,
+            "s": 40,
+            "batch": "B220",
+            "expiry": "2027-12-31",
+            "p_rate": 33,
+            "p_packing": "1x10",
+            "s_packing": "1x10",
+            "p_gst": 5,
+            "s_gst": 5,
+            "disc": 0,
+            "offer": "",
+            "reorder": 10,
+            "max_qty": 200,
+            "shelf_id": "MAIN",
+        },
+    )
+    assert med_create.status_code == 200
+
+    bill_create = client.post(
+        "/api/bills",
+        json={
+            "cust": "Cancel Flow Customer",
+            "phone": "9000000010",
+            "pay": "cash",
+            "sub": 110,
+            "disc": 0,
+            "tax": 5.5,
+            "total": 115.5,
+            "doctor": "Self",
+            "items": [{"id": medicine_id, "n": medicine_name, "p": 55, "qty": 2}],
+        },
+    )
+    assert bill_create.status_code == 200
+    bill_id = get_json(bill_create)["id"]
+
+    debit_note = client.post(
+        "/api/billing/vouchers",
+        json={
+            "type": "debit_note",
+            "voucher_no": unique_id("DN-", 6),
+            "voucher_date": "2026-05-12",
+            "customer_code": "1",
+            "amount": 150.75,
+            "remarks": "Damage adjustment",
+        },
+    )
+    assert debit_note.status_code == 200
+    debit_note_body = get_json(debit_note)
+    assert debit_note_body["status"] == "success"
+    assert debit_note_body["voucher"]["type"] == "debit_note"
+
+    receipt_credit = client.post(
+        "/api/billing/vouchers",
+        json={
+            "type": "sales_receipt_credit",
+            "voucher_no": unique_id("RC-", 6),
+            "voucher_date": "2026-05-12",
+            "account_date": "2026-05-12",
+            "reference_no": "REF-01",
+            "linked_bill_id": bill_id,
+            "account_name": "Customer Receipt",
+            "party_name": "Cancel Flow Customer",
+            "payment_type": "cash",
+            "amount": 115.5,
+            "remarks": "Receipt against bill",
+        },
+    )
+    assert receipt_credit.status_code == 200
+    receipt_credit_body = get_json(receipt_credit)
+    assert receipt_credit_body["voucher"]["type"] == "sales_receipt_credit"
+
+    voucher_list = client.get("/api/billing/vouchers?type=debit_note")
+    assert voucher_list.status_code == 200
+    assert isinstance(get_json(voucher_list), list)
+
+    cancel_preview = client.get(f"/api/bills/{bill_id}/cancel-preview")
+    assert cancel_preview.status_code == 200
+    cancel_preview_body = get_json(cancel_preview)
+    assert cancel_preview_body["id"] == bill_id
+    assert isinstance(cancel_preview_body["items"], list)
+    assert cancel_preview_body["items"][0]["item_code"] == medicine_id
+
+    cancel_bill = client.post(
+        f"/api/bills/{bill_id}/cancel",
+        json={"reason": "Customer requested void"},
+    )
+    assert cancel_bill.status_code == 200
+    cancel_bill_body = get_json(cancel_bill)
+    assert cancel_bill_body["status"] == "success"
+    assert cancel_bill_body["id"] == bill_id
+
+
 def test_purchases_and_masters_smoke(client):
     supplier_name = f"Smoke Supplier {unique_id('', 6)}"
     customer_name = f"Smoke Customer {unique_id('', 6)}"

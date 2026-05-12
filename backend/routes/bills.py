@@ -1,10 +1,11 @@
 from datetime import datetime, date as date_type
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, render_template, session
 from sqlalchemy import func
 
 from ..extensions import db
-from ..models.sales import SalesBill, SalesBillItem
+from .auth import login_required
+from ..models.sales import SalesBill, SalesBillItem, BillingVoucher
 from ..models.core import Customer, Doctor, Item, Location
 from ..models.inventory import StockBatch
 from ..models.lookups import BillType
@@ -161,6 +162,243 @@ def _apply_stock_delta(items: list, multiplier: int) -> None:
         if batch:
             batch.current_qty = max(0, batch.current_qty + qty * multiplier)
     db.session.flush()
+
+
+def _parse_ui_date(value: str | None, *, default=None):
+    raw = str(value or "").strip()
+    if not raw:
+        return default
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+        try:
+            return datetime.strptime(raw, fmt).date()
+        except ValueError:
+            continue
+    return default
+
+
+def _current_page_user():
+    return {
+        "id": session.get("user_id"),
+        "username": session.get("username"),
+        "name": session.get("name"),
+        "role": session.get("role"),
+    }
+
+
+def _voucher_to_compat(voucher: BillingVoucher) -> dict:
+    return {
+        "id": voucher.voucher_id,
+        "type": voucher.voucher_type,
+        "voucher_no": voucher.voucher_no,
+        "voucher_date": voucher.voucher_date.isoformat() if voucher.voucher_date else "",
+        "account_date": voucher.account_date.isoformat() if voucher.account_date else "",
+        "reference_no": voucher.reference_no or "",
+        "reference_date": voucher.reference_date.isoformat() if voucher.reference_date else "",
+        "customer_code": voucher.customer_code or "",
+        "account_code": voucher.account_code or "",
+        "account_name": voucher.account_name or "",
+        "party_name": voucher.party_name or "",
+        "payment_type": voucher.payment_type or "",
+        "bank_code": voucher.bank_code or "",
+        "amount": float(voucher.amount or 0),
+        "remarks": voucher.remarks or "",
+        "linked_bill_id": f"B-{voucher.linked_bill_id}" if voucher.linked_bill_id else "",
+        "created_at": voucher.created_at.isoformat() + "Z" if voucher.created_at else "",
+    }
+
+
+@bills_bp.route("/billing/debit-notes", methods=["GET"])
+@login_required
+def debit_note_page():
+    return render_template("debitnote.html", current_user=_current_page_user())
+
+
+@bills_bp.route("/billing/sales-receipts", methods=["GET"])
+@login_required
+def sales_receipt_page():
+    return render_template("SalesReceipt.html", current_user=_current_page_user())
+
+
+@bills_bp.route("/billing/cancel-bill", methods=["GET"])
+@login_required
+def cancel_bill_page():
+    return render_template("cancelbill.html", current_user=_current_page_user())
+
+
+@bills_bp.route("/api/billing/vouchers", methods=["GET"])
+def get_billing_vouchers():
+    voucher_type = request.args.get("type", "").strip().lower()
+    query = BillingVoucher.query
+    if voucher_type:
+        query = query.filter(BillingVoucher.voucher_type == voucher_type)
+    rows = query.order_by(BillingVoucher.voucher_id.desc()).all()
+    return jsonify([_voucher_to_compat(row) for row in rows])
+
+
+@bills_bp.route("/api/billing/vouchers/<int:voucher_id>", methods=["GET"])
+def get_billing_voucher(voucher_id):
+    row = BillingVoucher.query.get(voucher_id)
+    if not row:
+        return _json_error("Voucher not found", 404, {"id": voucher_id})
+    return jsonify(_voucher_to_compat(row))
+
+
+@bills_bp.route("/api/billing/vouchers", methods=["POST"])
+def save_billing_voucher():
+    data = request.get_json(silent=True) or {}
+    voucher_type = str(data.get("type", "")).strip().lower()
+    if voucher_type not in {"debit_note", "sales_receipt_credit"}:
+        return _json_error("Unsupported voucher type", 400, {"type": voucher_type})
+
+    voucher_no = str(data.get("voucher_no", "")).strip()
+    if not voucher_no:
+        return _json_error("Missing required field: voucher_no", 400)
+
+    voucher_date = _parse_ui_date(data.get("voucher_date"), default=date_type.today())
+    amount = float(data.get("amount", 0) or 0)
+    if amount < 0:
+        return _json_error("Amount must be zero or greater", 400)
+
+    try:
+        _, _, user_id, _, _ = _get_or_create_defaults()
+        row = None
+        voucher_id = data.get("id")
+        if voucher_id:
+            row = BillingVoucher.query.get(voucher_id)
+            if not row:
+                return _json_error("Voucher not found", 404, {"id": voucher_id})
+        else:
+            duplicate = BillingVoucher.query.filter_by(
+                voucher_type=voucher_type,
+                voucher_no=voucher_no,
+            ).first()
+            if duplicate:
+                return _json_error("Voucher number already exists", 409, {"voucher_no": voucher_no})
+            row = BillingVoucher(voucher_type=voucher_type, voucher_no=voucher_no, user_id=user_id)
+            db.session.add(row)
+
+        row.voucher_type = voucher_type
+        row.voucher_no = voucher_no
+        row.voucher_date = voucher_date
+        row.account_date = _parse_ui_date(data.get("account_date"))
+        row.reference_no = str(data.get("reference_no", "")).strip()
+        row.reference_date = _parse_ui_date(data.get("reference_date"))
+        row.customer_code = str(data.get("customer_code", "")).strip()
+        row.account_code = str(data.get("account_code", "")).strip()
+        row.account_name = str(data.get("account_name", "")).strip()
+        row.party_name = str(data.get("party_name", "")).strip()
+        row.payment_type = str(data.get("payment_type", "")).strip()
+        row.bank_code = str(data.get("bank_code", "")).strip()
+        row.amount = amount
+        row.remarks = str(data.get("remarks", "")).strip()
+
+        linked_bill_id = str(data.get("linked_bill_id", "")).strip()
+        if linked_bill_id:
+            real_bill_id = linked_bill_id.replace("B-", "").strip()
+            linked_bill = SalesBill.query.get(real_bill_id)
+            row.linked_bill_id = linked_bill.bill_id if linked_bill else None
+        else:
+            row.linked_bill_id = None
+
+        customer_code = row.customer_code
+        if customer_code.isdigit():
+            customer = Customer.query.get(int(customer_code))
+            if customer and not row.party_name:
+                row.party_name = customer.customer_name
+
+        db.session.commit()
+        return jsonify({"status": "success", "voucher": _voucher_to_compat(row)})
+    except (ValueError, TypeError) as err:
+        db.session.rollback()
+        return _json_error("Invalid voucher payload", 400, str(err))
+    except Exception as err:
+        db.session.rollback()
+        return _json_error("Failed to save voucher", 500, str(err))
+
+
+@bills_bp.route("/api/billing/vouchers/<int:voucher_id>", methods=["DELETE"])
+def delete_billing_voucher(voucher_id):
+    row = BillingVoucher.query.get(voucher_id)
+    if not row:
+        return _json_error("Voucher not found", 404, {"id": voucher_id})
+    try:
+        db.session.delete(row)
+        db.session.commit()
+        return jsonify({"status": "success", "deleted": voucher_id})
+    except Exception as err:
+        db.session.rollback()
+        return _json_error("Failed to delete voucher", 500, str(err))
+
+
+@bills_bp.route("/api/bills/<bill_id>/cancel-preview", methods=["GET"])
+def get_cancel_bill_preview(bill_id):
+    real_id = bill_id.replace("B-", "").strip()
+    bill = SalesBill.query.get(real_id)
+    if not bill or bill.is_cancelled:
+        return _json_error("Bill not found", 404, {"id": bill_id})
+
+    customer = Customer.query.get(bill.customer_id) if bill.customer_id else None
+    doctor = Doctor.query.get(bill.doctor_id) if bill.doctor_id else None
+    salesman_name = "System"
+    if bill.salesman_id:
+        from ..models.hr import Salesman
+
+        salesman = Salesman.query.get(bill.salesman_id)
+        if salesman and salesman.salesman_name:
+            salesman_name = salesman.salesman_name
+
+    items = []
+    for idx, bi in enumerate(bill.items, start=1):
+        item = Item.query.get(bi.item_id)
+        batch = StockBatch.query.get(bi.stock_batch_id) if bi.stock_batch_id else None
+        items.append({
+            "line_no": idx,
+            "item_code": bi.item_id,
+            "item_name": item.item_name if item else bi.item_id,
+            "batch": batch.batch_no if batch else "",
+            "expiry": batch.expiry_date.strftime("%m/%y") if batch and batch.expiry_date else "",
+            "qty": int(bi.qty_sold or 0),
+            "mrp": float(bi.mrp_at_sale or 0),
+            "value": float(bi.value or 0),
+        })
+
+    return jsonify({
+        "id": f"B-{bill.bill_id}",
+        "bill_no": str(bill.bill_no),
+        "cashbill_no": str(bill.bill_no),
+        "customer_name": customer.customer_name if customer else "Walk-in",
+        "customer_address": customer.address if customer and customer.address else "",
+        "doctor_name": doctor.doctor_name if doctor else "Self",
+        "salesman_name": salesman_name,
+        "remarks": bill.remarks or "",
+        "total": float(bill.net_amount or 0),
+        "items": items,
+    })
+
+
+@bills_bp.route("/api/bills/<bill_id>/cancel", methods=["POST"])
+def cancel_bill_with_reason(bill_id):
+    real_id = bill_id.replace("B-", "").strip()
+    bill = SalesBill.query.get(real_id)
+    if not bill:
+        return _json_error("Bill not found", 404, {"id": bill_id})
+    if bill.is_cancelled:
+        return _json_error("Bill already cancelled", 409, {"id": bill_id})
+
+    data = request.get_json(silent=True) or {}
+    reason = str(data.get("reason", "")).strip() or "Cancelled via cancel bill screen"
+
+    try:
+        cart_items = [{"id": bi.item_id, "qty": bi.qty_sold} for bi in bill.items]
+        _apply_stock_delta(cart_items, +1)
+        bill.is_cancelled = True
+        bill.cancel_reason = reason
+        bill.cancelled_at = datetime.utcnow()
+        db.session.commit()
+        return jsonify({"status": "success", "id": bill_id, "reason": reason})
+    except Exception as err:
+        db.session.rollback()
+        return _json_error("Failed to cancel bill", 500, str(err))
 
 
 
