@@ -1,6 +1,6 @@
 from datetime import datetime
 import uuid
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID
 # from pgvector.sqlalchemy import Vector
 from ..extensions import db
 
@@ -206,7 +206,7 @@ class Supplier(db.Model):
     credit_days = db.Column(db.Integer, nullable=False, default=0)
     
     b2b_portal_url = db.Column(db.Text)
-    b2b_credentials = db.Column(JSONB)
+    b2b_credentials = db.Column(db.JSON)
 
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
@@ -256,9 +256,10 @@ class Customer(db.Model):
     address = db.Column(db.Text)
     gstin = db.Column(db.String(15))
 
-    face_image_url = db.Column(db.Text)
-    face_embedding = db.Column(JSONB)
-    last_face_scan_at = db.Column(db.DateTime)
+    face_image_url = db.Column(db.Text, nullable=True)
+    face_embedding = db.Column(db.JSON, nullable=True)
+    last_face_scan_at = db.Column(db.DateTime, nullable=True)
+
     is_chronic_patient = db.Column(db.Boolean, nullable=False, default=False)
     risk_score = db.Column(db.Integer, nullable=False, default=0)
 

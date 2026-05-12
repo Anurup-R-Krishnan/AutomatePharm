@@ -24,10 +24,7 @@ from .inventory import StockBatch, StockLedger, ExpiryAlert
 
 
 # AI / CV / ML
-from .ai import (
-    AiFaceLog, PrescriptionOcrLog, CustomerPurchasePattern,
-    SeleniumOrderLog, WantedList
-)
+from .ai import AiFaceLog, PrescriptionOcrLog
 
 
 # Sales / Billing

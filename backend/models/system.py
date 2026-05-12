@@ -1,7 +1,7 @@
 """Domain G — System / Audit: audit_log, sms_log, system_settings."""
 
 from datetime import datetime
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID
 from ..extensions import db
 
 
@@ -13,8 +13,8 @@ class AuditLog(db.Model):
     action = db.Column(db.String(10), nullable=False)
     table_name = db.Column(db.String(100), nullable=False)
     record_id = db.Column(db.String(50), nullable=False)
-    old_value = db.Column(JSONB)
-    new_value = db.Column(JSONB)
+    old_value = db.Column(db.JSON)
+    new_value = db.Column(db.JSON)
     ip_address = db.Column(db.String(45))
     machine_code = db.Column(db.String(20))
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
