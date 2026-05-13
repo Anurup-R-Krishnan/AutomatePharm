@@ -249,6 +249,73 @@
       <div class="g2" style="margin-top:2px">
         <div>
           <label>Bill Ref</label>
+
+      <!-- FINANCE / ACCOUNTING MODAL -->
+      <div id="finance-mod" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center;">
+        <div class="crd fm" style="width:980px;padding:22px;background:var(--card);box-shadow:0 10px 25px rgba(0,0,0,0.5);max-height:92vh;display:flex;flex-direction:column;gap:14px;">
+          <div style="font-size:15px;font-weight:600;color:#e8ecf4;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-shrink:0;">
+            <span style="flex:1"><i class="fas fa-calculator" style="color:#22c55e;margin-right:8px"></i> Accounting &amp; Financial Control</span>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="date" id="fin-st" style="background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:6px 8px;color:var(--tx);font-size:11px"/>
+              <span style="color:var(--mt);font-size:11px">to</span>
+              <input type="date" id="fin-en" style="background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:6px 8px;color:var(--tx);font-size:11px"/>
+              <button class="btn btn-out" onclick="openFinancePanel()"><i class="fas fa-arrows-rotate"></i></button>
+              <i class="fas fa-xmark" style="cursor:pointer;color:var(--mt)" onclick="document.getElementById('finance-mod').style.display='none'"></i>
+            </div>
+          </div>
+
+          <div id="finance-kpis" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;flex-shrink:0;">
+            <div class="crd" style="padding:14px;text-align:center"><div style="font-size:11px;color:var(--mt)">Sales</div><div style="font-size:18px;font-weight:600;color:var(--tx)" id="fin-sales">₹0.00</div></div>
+            <div class="crd" style="padding:14px;text-align:center"><div style="font-size:11px;color:var(--mt)">Expenses</div><div style="font-size:18px;font-weight:600;color:#ef4444" id="fin-expenses">₹0.00</div></div>
+            <div class="crd" style="padding:14px;text-align:center"><div style="font-size:11px;color:var(--mt)">Gross Profit</div><div style="font-size:18px;font-weight:600;color:#22c55e" id="fin-gross">₹0.00</div></div>
+            <div class="crd" style="padding:14px;text-align:center"><div style="font-size:11px;color:var(--mt)">Net Profit</div><div style="font-size:18px;font-weight:600;color:#60a5fa" id="fin-net">₹0.00</div></div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1.1fr 0.9fr;gap:12px;min-height:0;flex:1;">
+            <div class="crd" style="padding:14px;display:flex;flex-direction:column;min-height:0;">
+              <div class="sec-hd" style="margin-bottom:10px"><span class="sec-t" style="font-size:13px">Expense Entry</span><span id="fin-status" style="font-size:11px;color:var(--mt)">Ready</span></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+                <input type="date" id="exp-date" style="background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px 9px;color:var(--tx)"/>
+                <input type="text" id="exp-cat" placeholder="Category" style="background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px 9px;color:var(--tx)"/>
+                <input type="number" id="exp-amt" placeholder="Amount" min="0" step="0.01" style="background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px 9px;color:var(--tx)"/>
+                <input type="text" id="exp-voucher" placeholder="Voucher No." style="background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px 9px;color:var(--tx)"/>
+              </div>
+              <textarea id="exp-desc" rows="3" placeholder="Description" style="background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px 9px;color:var(--tx);margin-bottom:8px"></textarea>
+              <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+                <label style="font-size:11px;color:var(--mt)"><input type="checkbox" id="exp-gst"/> GST applicable</label>
+                <input type="number" id="exp-gst-amt" placeholder="GST Amt" min="0" step="0.01" style="width:120px;background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px 9px;color:var(--tx)"/>
+                <button class="btn btn-acc" onclick="saveExpense()"><i class="fas fa-floppy-disk"></i>Save Expense</button>
+              </div>
+              <div class="tw" style="overflow:auto;flex:1;max-height:330px">
+                <table>
+                  <thead><tr><th>Date</th><th>Category</th><th>Amount</th><th>Voucher</th><th style="text-align:right">Action</th></tr></thead>
+                  <tbody id="expense-body"><tr><td colspan="5" style="text-align:center;color:var(--dim)">No expenses loaded.</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:12px;min-height:0;">
+              <div class="crd" style="padding:14px;min-height:0;flex:1;display:flex;flex-direction:column;">
+                <div class="sec-hd" style="margin-bottom:10px"><span class="sec-t" style="font-size:13px">Supplier Payables</span><span id="payable-total" style="font-size:11px;color:var(--mt)">₹0.00</span></div>
+                <div class="tw" style="overflow:auto;flex:1;max-height:260px">
+                  <table>
+                    <thead><tr><th>Supplier</th><th>Payable</th><th>Payments</th><th style="text-align:right">Action</th></tr></thead>
+                    <tbody id="payable-body"><tr><td colspan="4" style="text-align:center;color:var(--dim)">Loading payables...</td></tr></tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="crd" style="padding:14px;min-height:0;flex:1;display:flex;flex-direction:column;">
+                <div class="sec-hd" style="margin-bottom:10px"><span class="sec-t" style="font-size:13px">Daily Sales</span><span id="sales-bill-count" style="font-size:11px;color:var(--mt)">0 bills</span></div>
+                <div class="tw" style="overflow:auto;flex:1;max-height:260px">
+                  <table>
+                    <thead><tr><th>Date</th><th>Bills</th><th>Gross</th><th>Net</th></tr></thead>
+                    <tbody id="daily-sales-body"><tr><td colspan="4" style="text-align:center;color:var(--dim)">Loading sales...</td></tr></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
           <input type="text" id="sms-bill" placeholder="Bill ID / reference"/>
         </div>
         <div>
@@ -328,6 +395,11 @@
       <i class="fas fa-file-invoice-dollar" style="font-size:22px;color:#f59e0b;margin-bottom:10px;display:block"></i>
       <div style="font-size:13px;font-weight:600;margin-bottom:4px">GST Report</div>
       <div style="font-size:11px;color:var(--mt)">Tax metrics</div>
+    </div>
+    <div class="crd" onclick="openFinancePanel()" style="padding:18px;cursor:pointer;transition:border-color .15px" onmouseover="this.style.borderColor='#374151'" onmouseout="this.style.borderColor=''">
+      <i class="fas fa-calculator" style="font-size:22px;color:#22c55e;margin-bottom:10px;display:block"></i>
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px">Accounting</div>
+      <div style="font-size:11px;color:var(--mt)">Expenses, P&amp;L, payables</div>
     </div>
   </div>
 </div></div>
@@ -519,7 +591,7 @@
   <div class="crd fm" style="width:320px;padding:22px;background:var(--card);box-shadow:0 10px 25px rgba(0,0,0,0.5);">
     <div style="font-size:15px;font-weight:600;margin-bottom:16px;color:#e8ecf4;display:flex;justify-content:space-between;align-items:center;"><span id="cust-title">Add Customer</span><i class="fas fa-xmark" style="cursor:pointer" onclick="document.getElementById('cust-mod').style.display='none'"></i></div>
     <input type="hidden" id="c-id"/><input type="hidden" id="c-face"/>
-    <label>Customer Name</label><input type="text" id="c-n"/><label>Phone</label><input type="text" id="c-p"/><label>Address</label><input type="text" id="c-a"/><label>Email</label><input type="text" id="c-e"/>
+    <label>Customer Name</label><input type="text" id="c-n"/><label>Phone</label><input type="text" id="c-p"/><label>Address</label><input type="text" id="c-a"/><label>Email</label><input type="text" id="c-e"/><label>Family Head</label><select id="c-fh" style="width:100%;margin-bottom:8px;"><option value="">No family account</option></select><label>Family Relation</label><input type="text" id="c-fr" placeholder="Head / Spouse / Child"/>
     <div style="text-align:center; margin-bottom: 8px;">
       <video id="c-vid" autoplay playsinline style="width:100%;height:150px;object-fit:cover;display:none;margin-bottom:8px;border-radius:8px;transform:scaleX(-1)"></video>
       <button class="btn btn-out" id="c-btn-scan" style="width:100%;padding:10px;justify-content:center;font-size:11.5px" onclick="enrollFace(event)"><i class="fas fa-camera"></i> Enroll Face Vector</button>
@@ -1331,6 +1403,7 @@ initNav();
 function rMasters(){rCustomers();if(typeof renderSmsRecipients==='function')renderSmsRecipients();rSuppliers();rDoctors();loadShelves();}
 let CUSTOMERS=[];
 function rCustomers(){fetch(API+'/customers?t='+Date.now()).then(r=>r.json()).then(cs=>{CUSTOMERS=cs;const tb=document.getElementById('cust-body');const nL=document.getElementById('cust-list');const pL=document.getElementById('phone-list');if(nL&&pL){nL.innerHTML='';pL.innerHTML='';cs.forEach(x=>{nL.innerHTML+=`<option value="${x.name}">${x.phone}</option>`;pL.innerHTML+=`<option value="${x.phone}">${x.name}</option>`;});}if(!tb)return;tb.innerHTML='';if(!cs.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--dim)">No customer records.</td></tr>';return;}cs.forEach(c=>{const bal = c.balance||0; tb.innerHTML+=`<tr><td>${c.name}</td><td>${c.phone}</td><td style="text-align:center">${c.visits}</td><td style="font-weight:600;${bal>0?'color:#ef4444;':''}"><div style="font-size:12px">Bal: ₹${bal.toFixed(2)}</div><div style="font-size:10px;color:var(--mt)">Spend: ₹${c.total_spend.toFixed(2)}</div></td><td style="text-align:right"><i class="fas fa-book" style="cursor:pointer;color:#a78bfa;margin-right:10px" onclick="openLedger(${c.id})" title="Ledger"></i><i class="fas fa-comment-dots" style="cursor:pointer;color:var(--acc);margin-right:10px" onclick="openSmsForCustomer(${c.id})" title="SMS Customer"></i><i class="fas fa-edit" style="cursor:pointer;color:var(--acc);margin-right:10px" onclick="ecust(${c.id})"></i><i class="fas fa-trash" style="cursor:pointer;color:#e74c3c" onclick="dcust(${c.id})"></i></td></tr>`})});}
+function renderFamilyHeadOptions(selectedId,currentId){const sel=document.getElementById('c-fh');if(!sel)return;const currentValue=selectedId?String(selectedId):'';sel.innerHTML='<option value="">No family account</option>'+CUSTOMERS.filter(c=>String(c.id)!==String(currentId)).map(c=>`<option value="${c.id}">${c.name} · ${c.phone||'No phone'}</option>`).join('');sel.value=currentValue;}
 function rSuppliers(){fetch(API+'/suppliers?t='+Date.now()).then(r=>r.json()).then(ss=>{SUPPLIERS=ss;const tb=document.getElementById('sup-body');if(!tb)return;tb.innerHTML='';if(!ss.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--dim)">No supplier records.</td></tr>';return;}ss.forEach(s=>tb.innerHTML+=`<tr><td>${s.name}</td><td>${s.phone}</td><td>${s.gst||'—'}</td><td><span class="bx bg">${s.status}</span></td><td style="text-align:right"><i class="fas fa-edit" style="cursor:pointer;color:var(--acc);margin-right:10px" onclick="esup(${s.id})"></i><i class="fas fa-trash" style="cursor:pointer;color:#e74c3c" onclick="dm_sup('${s.id}')"></i></td></tr>`)});}
 let DOCTORS=[];
 function rDoctors(){fetch(API+'/doctors?t='+Date.now()).then(r=>r.json()).then(ds=>{DOCTORS=ds;const tb=document.getElementById('doc-body');if(!tb)return;tb.innerHTML='';if(!ds.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--dim)">No doctor records.</td></tr>';return;}ds.forEach(d=>tb.innerHTML+=`<tr><td>${d.name}</td><td>${d.specialty}</td><td>${d.hospital}</td><td>${d.phone}</td><td style="text-align:right"><i class="fas fa-edit" style="cursor:pointer;color:var(--acc);margin-right:10px" onclick="edoc(${d.id})"></i><i class="fas fa-trash" style="cursor:pointer;color:#e74c3c" onclick="ddoc(${d.id})"></i></td></tr>`)}); }
@@ -1403,8 +1476,8 @@ function dshelf(id){
   }).catch(err=>alert('Delete Failed: '+(err.message||'Server error')));
 }
 
-function acust(){document.getElementById('cust-mod').style.display='flex';document.getElementById('cust-title').textContent='Add Customer';document.getElementById('c-id').value='';document.getElementById('c-n').value='';document.getElementById('c-p').value='';document.getElementById('c-a').value='';document.getElementById('c-e').value='';document.getElementById('c-face').value='';document.getElementById('c-btn-scan').innerHTML='<i class="fas fa-camera"></i> Enroll Face Vector';document.getElementById('c-btn-scan').style.borderColor='';document.getElementById('c-btn-scan').style.color='';document.getElementById('c-n').focus();}
-function ecust(id){const c=CUSTOMERS.find(x=>x.id==id);if(!c)return;document.getElementById('cust-mod').style.display='flex';document.getElementById('cust-title').textContent='Edit Customer';document.getElementById('c-id').value=c.id;document.getElementById('c-n').value=c.name;document.getElementById('c-p').value=c.phone;document.getElementById('c-a').value=c.address||'';document.getElementById('c-e').value=c.email||'';document.getElementById('c-face').value=c.face_vector||'';document.getElementById('c-btn-scan').innerHTML=c.face_vector?'<i class="fas fa-check"></i> ML Vector Enrolled!':'<i class="fas fa-camera"></i> Enroll Face Vector';document.getElementById('c-btn-scan').style.borderColor=c.face_vector?'#22c55e':'';document.getElementById('c-btn-scan').style.color=c.face_vector?'#22c55e':'';document.getElementById('c-n').focus();}
+function acust(){document.getElementById('cust-mod').style.display='flex';document.getElementById('cust-title').textContent='Add Customer';document.getElementById('c-id').value='';document.getElementById('c-n').value='';document.getElementById('c-p').value='';document.getElementById('c-a').value='';document.getElementById('c-e').value='';document.getElementById('c-fh').value='';document.getElementById('c-fr').value='';document.getElementById('c-face').value='';document.getElementById('c-btn-scan').innerHTML='<i class="fas fa-camera"></i> Enroll Face Vector';document.getElementById('c-btn-scan').style.borderColor='';document.getElementById('c-btn-scan').style.color='';renderFamilyHeadOptions('',null);document.getElementById('c-n').focus();}
+function ecust(id){const c=CUSTOMERS.find(x=>x.id==id);if(!c)return;document.getElementById('cust-mod').style.display='flex';document.getElementById('cust-title').textContent='Edit Customer';document.getElementById('c-id').value=c.id;document.getElementById('c-n').value=c.name;document.getElementById('c-p').value=c.phone;document.getElementById('c-a').value=c.address||'';document.getElementById('c-e').value=c.email||'';document.getElementById('c-fh').value=c.family_head_id&&String(c.family_head_id)!==String(c.id)?String(c.family_head_id):'';document.getElementById('c-fr').value=c.family_relation||'';document.getElementById('c-face').value=c.face_vector||'';document.getElementById('c-btn-scan').innerHTML=c.face_vector?'<i class="fas fa-check"></i> ML Vector Enrolled!':'<i class="fas fa-camera"></i> Enroll Face Vector';document.getElementById('c-btn-scan').style.borderColor=c.face_vector?'#22c55e':'';document.getElementById('c-btn-scan').style.color=c.face_vector?'#22c55e':'';renderFamilyHeadOptions(c.family_head_id||'',c.id);document.getElementById('c-n').focus();}
 
 let enrollStream = null;
 async function enrollFace(e) {
@@ -1433,7 +1506,7 @@ async function enrollFace(e) {
   }
 }
 
-function sv_cust(){const id=document.getElementById('c-id').value,n=document.getElementById('c-n').value.trim(),p=document.getElementById('c-p').value.trim(),a=document.getElementById('c-a').value.trim(),e=document.getElementById('c-e').value.trim(),f=document.getElementById('c-face').value;if(!n){alert('Enter Customer Name');return;}const d=id?CUSTOMERS.find(x=>x.id==id):{};fetch(API+'/customers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id||null,name:n,phone:p,address:a,email:e,visits:d.visits||1,total:d.total_spend||0,face_vector:f})}).then(()=>{rMasters();document.getElementById('cust-mod').style.display='none';});}
+function sv_cust(){const id=document.getElementById('c-id').value,n=document.getElementById('c-n').value.trim(),p=document.getElementById('c-p').value.trim(),a=document.getElementById('c-a').value.trim(),e=document.getElementById('c-e').value.trim(),fh=document.getElementById('c-fh').value,fr=document.getElementById('c-fr').value.trim(),f=document.getElementById('c-face').value;if(!n){alert('Enter Customer Name');return;}const d=id?CUSTOMERS.find(x=>x.id==id):{};fetch(API+'/customers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id||null,name:n,phone:p,address:a,email:e,visits:d.visits||1,total:d.total_spend||0,face_vector:f,family_head_id:fh||null,family_relation:fr})}).then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.message||'Save failed')});return r.json()}).then(()=>{rMasters();document.getElementById('cust-mod').style.display='none';}).catch(err=>alert(err.message));}
 function dcust(id){if(!confirm('Delete this customer?'))return;fetch(API+'/customers/'+id,{method:'DELETE'}).then(()=>rMasters());}
 
 function asup(){document.getElementById('sup-mod').style.display='flex';document.getElementById('sup-title').textContent='Add Supplier';document.getElementById('s-id').value='';document.getElementById('s-n').value='';document.getElementById('s-p').value='';document.getElementById('s-g').value='';document.getElementById('s-st').value='Active';document.getElementById('s-n').focus();}
@@ -2287,6 +2360,162 @@ function rGstRep() {
         document.getElementById('gst-tax').textContent = '₹'+res.total_tax.toFixed(2);
     });
 }
+
+    function financeRange(){
+      return {
+        start: document.getElementById('fin-st').value,
+        end: document.getElementById('fin-en').value,
+      };
+    }
+
+    function financeUrl(path){
+      const range = financeRange();
+      let url = `/api/finance/${path}?t=${Date.now()}`;
+      if(range.start) url += `&start_date=${range.start}`;
+      if(range.end) url += `&end_date=${range.end}`;
+      return url;
+    }
+
+    function openFinancePanel(){
+      const modal = document.getElementById('finance-mod');
+      const today = new Date().toISOString().slice(0,10);
+      if(!document.getElementById('fin-st').value) document.getElementById('fin-st').value = today;
+      if(!document.getElementById('fin-en').value) document.getElementById('fin-en').value = today;
+      if(!document.getElementById('exp-date').value) document.getElementById('exp-date').value = today;
+      modal.style.display='flex';
+      loadFinancePanel();
+    }
+
+    function renderFinanceTables(summary, expenses, payables){
+      document.getElementById('fin-sales').textContent = `₹${(summary.sales_total||0).toFixed(2)}`;
+      document.getElementById('fin-expenses').textContent = `₹${(summary.expense_total||0).toFixed(2)}`;
+      document.getElementById('fin-gross').textContent = `₹${(summary.gross_profit||0).toFixed(2)}`;
+      document.getElementById('fin-net').textContent = `₹${(summary.net_profit||0).toFixed(2)}`;
+      document.getElementById('sales-bill-count').textContent = `${summary.bill_count||0} bills`;
+      document.getElementById('payable-total').textContent = `₹${(summary.supplier_payables_total||0).toFixed(2)}`;
+
+      const expBody = document.getElementById('expense-body');
+      expBody.innerHTML = expenses.length ? expenses.map(x => `
+        <tr>
+        <td>${x.expense_date}</td>
+        <td>${x.category}</td>
+        <td>₹${(x.amount||0).toFixed(2)}</td>
+        <td>${x.voucher_no || '—'}</td>
+        <td style="text-align:right"><button class="btn btn-out" style="padding:4px 8px;font-size:10px" onclick="deleteExpense(${x.id})"><i class="fas fa-trash"></i></button></td>
+        </tr>
+      `).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--dim)">No expenses recorded.</td></tr>';
+
+      const payBody = document.getElementById('payable-body');
+      payBody.innerHTML = payables.length ? payables.map(x => `
+        <tr>
+        <td>${x.supplier_name}</td>
+        <td style="font-weight:600;${x.payable>0?'color:#ef4444;':''}">₹${(x.payable||0).toFixed(2)}</td>
+        <td>₹${(x.payments||0).toFixed(2)}</td>
+        <td style="text-align:right"><button class="btn btn-out" style="padding:4px 8px;font-size:10px" onclick="recordSupplierPayment(${x.supplier_id}, '${x.supplier_name.replace(/'/g, "\\'")}')"><i class="fas fa-rupee-sign"></i></button></td>
+        </tr>
+      `).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--dim)">No suppliers found.</td></tr>';
+
+      const salesBody = document.getElementById('daily-sales-body');
+      salesBody.innerHTML = (summary.daily_sales||[]).length ? summary.daily_sales.map(x => `
+        <tr>
+        <td>${x.date}</td>
+        <td>${x.bill_count}</td>
+        <td>₹${(x.gross_sales||0).toFixed(2)}</td>
+        <td>₹${(x.net_sales||0).toFixed(2)}</td>
+        </tr>
+      `).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--dim)">No sales in this range.</td></tr>';
+    }
+
+    async function loadFinancePanel(){
+      const status = document.getElementById('fin-status');
+      status.textContent = 'Loading...';
+      try {
+        const [summaryRes, expensesRes, payablesRes] = await Promise.all([
+          fetch(financeUrl('summary')),
+          fetch(financeUrl('expenses')),
+          fetch(financeUrl('supplier-payables')),
+        ]);
+        const summary = await summaryRes.json();
+        const expenses = await expensesRes.json();
+        const payables = await payablesRes.json();
+        renderFinanceTables(summary || {}, Array.isArray(expenses) ? expenses : [], Array.isArray(payables) ? payables : []);
+        status.textContent = 'Ready';
+      } catch (error) {
+        status.textContent = 'Error';
+        alert(error.message || 'Failed to load accounting data');
+      }
+    }
+
+    async function saveExpense(){
+      const payload = {
+        expense_date: document.getElementById('exp-date').value,
+        category: document.getElementById('exp-cat').value.trim(),
+        amount: parseFloat(document.getElementById('exp-amt').value || '0'),
+        description: document.getElementById('exp-desc').value.trim(),
+        is_gst_applicable: document.getElementById('exp-gst').checked,
+        gst_amount: parseFloat(document.getElementById('exp-gst-amt').value || '0'),
+        voucher_no: document.getElementById('exp-voucher').value.trim(),
+      };
+      if(!payload.expense_date || !payload.category || !payload.amount){
+        alert('Enter expense date, category, and amount.');
+        return;
+      }
+      const status = document.getElementById('fin-status');
+      status.textContent = 'Saving expense...';
+      try {
+        const res = await fetch('/api/finance/expenses', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if(!res.ok) throw new Error(data.message || data.error || 'Failed to save expense');
+        await loadFinancePanel();
+        document.getElementById('exp-cat').value='';
+        document.getElementById('exp-amt').value='';
+        document.getElementById('exp-desc').value='';
+        document.getElementById('exp-voucher').value='';
+        document.getElementById('exp-gst').checked=false;
+        document.getElementById('exp-gst-amt').value='';
+        status.textContent = 'Expense saved';
+      } catch(error){
+        status.textContent = 'Error';
+        alert(error.message || 'Failed to save expense');
+      }
+    }
+
+    async function deleteExpense(id){
+      if(!confirm('Delete this expense?')) return;
+      const status = document.getElementById('fin-status');
+      status.textContent = 'Deleting expense...';
+      try {
+        const res = await fetch(`/api/finance/expenses/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if(!res.ok) throw new Error(data.message || data.error || 'Failed to delete expense');
+        await loadFinancePanel();
+        status.textContent = 'Expense deleted';
+      } catch(error){
+        status.textContent = 'Error';
+        alert(error.message || 'Failed to delete expense');
+      }
+    }
+
+    async function recordSupplierPayment(supplierId, supplierName){
+      const amount = parseFloat(prompt(`Payment amount for ${supplierName}:`, '0') || '0');
+      if(!amount || amount <= 0) return;
+      try {
+        const res = await fetch('/api/finance/supplier-payments', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({supplier_id: supplierId, amount, remarks: 'Paid from accounting panel'}),
+        });
+        const data = await res.json();
+        if(!res.ok) throw new Error(data.message || data.error || 'Failed to record payment');
+        await loadFinancePanel();
+      } catch(error){
+        alert(error.message || 'Failed to record supplier payment');
+      }
+    }
 </script>
 
 <!-- LEDGER MODAL -->
