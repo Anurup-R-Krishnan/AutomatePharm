@@ -11,6 +11,9 @@ from .auth import auth_bp
 from .face import face_bp
 
 
+from .analytics import analytics_bp
+
+
 def register_blueprints(app: Flask) -> None:
     app.register_blueprint(auth_bp)
     app.register_blueprint(core_bp)
@@ -21,3 +24,4 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(communications_bp)
     app.register_blueprint(sms_bp)
     app.register_blueprint(face_bp)
+    app.register_blueprint(analytics_bp)

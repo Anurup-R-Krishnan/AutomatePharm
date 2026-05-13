@@ -1,7 +1,7 @@
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 from ..models.sales import (
     SalesBill, SalesBillItem, ApprovalLog, PrescriptionRegister,
-    SalesReturn, SalesReturnItem, ReceiptPayment
+    SalesReturn, SalesReturnItem, ReceiptPayment, BillingVoucher
 )
 
 
@@ -44,4 +44,10 @@ class SalesReturnItemSchema(SQLAlchemyAutoSchema):
 class ReceiptPaymentSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = ReceiptPayment
+        load_instance = True
+
+
+class BillingVoucherSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = BillingVoucher
         load_instance = True

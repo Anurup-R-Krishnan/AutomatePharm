@@ -30,7 +30,7 @@ from .ai import AiFaceLog, PrescriptionOcrLog
 # Sales / Billing
 from .sales import (
     SalesBill, SalesBillItem, ApprovalLog, PrescriptionRegister,
-    SalesReturn, SalesReturnItem, ReceiptPayment
+    SalesReturn, SalesReturnItem, ReceiptPayment, BillingVoucher
 )
 
 
