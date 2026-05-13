@@ -206,7 +206,15 @@ def update_med():
         return _json_error("Missing required field: n (item name)", 400)
 
     try:
-        mfg_id, cat_id, slab_id, hsn_id, uom_id = _get_or_create_defaults()
+        mfg_id, _, slab_id, hsn_id, uom_id = _get_or_create_defaults()
+
+        cat_name = data.get("c", "General").strip()
+        category = ProductCategory.query.filter(func.lower(ProductCategory.category_name) == cat_name.lower()).first()
+        if not category:
+            category = ProductCategory(category_name=cat_name)
+            db.session.add(category)
+            db.session.flush()
+        cat_id = category.category_id
 
         item_id = data.get("id") or ("m_" + str(int(datetime.utcnow().timestamp() * 1000)))
         item = Item.query.get(item_id)
@@ -223,7 +231,8 @@ def update_med():
                 sales_gst_slab_id=slab_id,
             )
             db.session.add(item)
-
+            
+        item.category_id = cat_id
         # update item fields from the flat frontend payload
         item.item_name           = data.get("n", item.item_name)
         item.default_selling_price = float(data.get("p", item.default_selling_price or 0))

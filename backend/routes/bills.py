@@ -577,8 +577,8 @@ def save_bill():
         
         db.session.commit()
 
-        # WhatsApp receipt
-        if customer_phone:
+        # WhatsApp receipt (Twilio Backup)
+        if customer_phone and data.get("send_twilio_whatsapp"):
             try:
                 items_str = "\n".join(
                     f"- {ci.get('n','Item')} (Qty:{ci.get('qty',1)}) : Rs.{float(ci.get('p',0))*int(ci.get('qty',1)):.2f}"
