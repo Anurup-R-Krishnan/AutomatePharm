@@ -252,72 +252,6 @@
         <div>
           <label>Bill Ref</label>
 
-      <!-- FINANCE / ACCOUNTING MODAL -->
-      <div id="finance-mod" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center;">
-        <div class="crd fm" style="width:980px;padding:22px;background:var(--card);box-shadow:0 10px 25px rgba(0,0,0,0.5);max-height:92vh;display:flex;flex-direction:column;gap:14px;">
-          <div style="font-size:15px;font-weight:600;color:#e8ecf4;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-shrink:0;">
-            <span style="flex:1"><i class="fas fa-calculator" style="color:#22c55e;margin-right:8px"></i> Accounting &amp; Financial Control</span>
-            <div style="display:flex;gap:8px;align-items:center">
-              <input type="date" id="fin-st" style="background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:6px 8px;color:var(--tx);font-size:11px"/>
-              <span style="color:var(--mt);font-size:11px">to</span>
-              <input type="date" id="fin-en" style="background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:6px 8px;color:var(--tx);font-size:11px"/>
-              <button class="btn btn-out" onclick="openFinancePanel()"><i class="fas fa-arrows-rotate"></i></button>
-              <i class="fas fa-xmark" style="cursor:pointer;color:var(--mt)" onclick="document.getElementById('finance-mod').style.display='none'"></i>
-            </div>
-          </div>
-
-          <div id="finance-kpis" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;flex-shrink:0;">
-            <div class="crd" style="padding:14px;text-align:center"><div style="font-size:11px;color:var(--mt)">Sales</div><div style="font-size:18px;font-weight:600;color:var(--tx)" id="fin-sales">₹0.00</div></div>
-            <div class="crd" style="padding:14px;text-align:center"><div style="font-size:11px;color:var(--mt)">Expenses</div><div style="font-size:18px;font-weight:600;color:#ef4444" id="fin-expenses">₹0.00</div></div>
-            <div class="crd" style="padding:14px;text-align:center"><div style="font-size:11px;color:var(--mt)">Gross Profit</div><div style="font-size:18px;font-weight:600;color:#22c55e" id="fin-gross">₹0.00</div></div>
-            <div class="crd" style="padding:14px;text-align:center"><div style="font-size:11px;color:var(--mt)">Net Profit</div><div style="font-size:18px;font-weight:600;color:#60a5fa" id="fin-net">₹0.00</div></div>
-          </div>
-
-          <div style="display:grid;grid-template-columns:1.1fr 0.9fr;gap:12px;min-height:0;flex:1;">
-            <div class="crd" style="padding:14px;display:flex;flex-direction:column;min-height:0;">
-              <div class="sec-hd" style="margin-bottom:10px"><span class="sec-t" style="font-size:13px">Expense Entry</span><span id="fin-status" style="font-size:11px;color:var(--mt)">Ready</span></div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-                <input type="date" id="exp-date" style="background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px 9px;color:var(--tx)"/>
-                <input type="text" id="exp-cat" placeholder="Category" style="background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px 9px;color:var(--tx)"/>
-                <input type="number" id="exp-amt" placeholder="Amount" min="0" step="0.01" style="background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px 9px;color:var(--tx)"/>
-                <input type="text" id="exp-voucher" placeholder="Voucher No." style="background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px 9px;color:var(--tx)"/>
-              </div>
-              <textarea id="exp-desc" rows="3" placeholder="Description" style="background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px 9px;color:var(--tx);margin-bottom:8px"></textarea>
-              <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
-                <label style="font-size:11px;color:var(--mt)"><input type="checkbox" id="exp-gst"/> GST applicable</label>
-                <input type="number" id="exp-gst-amt" placeholder="GST Amt" min="0" step="0.01" style="width:120px;background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px 9px;color:var(--tx)"/>
-                <button class="btn btn-acc" onclick="saveExpense()"><i class="fas fa-floppy-disk"></i>Save Expense</button>
-              </div>
-              <div class="tw" style="overflow:auto;flex:1;max-height:330px">
-                <table>
-                  <thead><tr><th>Date</th><th>Category</th><th>Amount</th><th>Voucher</th><th style="text-align:right">Action</th></tr></thead>
-                  <tbody id="expense-body"><tr><td colspan="5" style="text-align:center;color:var(--dim)">No expenses loaded.</td></tr></tbody>
-                </table>
-              </div>
-            </div>
-            <div style="display:flex;flex-direction:column;gap:12px;min-height:0;">
-              <div class="crd" style="padding:14px;min-height:0;flex:1;display:flex;flex-direction:column;">
-                <div class="sec-hd" style="margin-bottom:10px"><span class="sec-t" style="font-size:13px">Supplier Payables</span><span id="payable-total" style="font-size:11px;color:var(--mt)">₹0.00</span></div>
-                <div class="tw" style="overflow:auto;flex:1;max-height:260px">
-                  <table>
-                    <thead><tr><th>Supplier</th><th>Payable</th><th>Payments</th><th style="text-align:right">Action</th></tr></thead>
-                    <tbody id="payable-body"><tr><td colspan="4" style="text-align:center;color:var(--dim)">Loading payables...</td></tr></tbody>
-                  </table>
-                </div>
-              </div>
-              <div class="crd" style="padding:14px;min-height:0;flex:1;display:flex;flex-direction:column;">
-                <div class="sec-hd" style="margin-bottom:10px"><span class="sec-t" style="font-size:13px">Daily Sales</span><span id="sales-bill-count" style="font-size:11px;color:var(--mt)">0 bills</span></div>
-                <div class="tw" style="overflow:auto;flex:1;max-height:260px">
-                  <table>
-                    <thead><tr><th>Date</th><th>Bills</th><th>Gross</th><th>Net</th></tr></thead>
-                    <tbody id="daily-sales-body"><tr><td colspan="4" style="text-align:center;color:var(--dim)">Loading sales...</td></tr></tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
           <input type="text" id="sms-bill" placeholder="Bill ID / reference"/>
         </div>
         <div>
@@ -402,6 +336,71 @@
       <i class="fas fa-calculator" style="font-size:22px;color:#22c55e;margin-bottom:10px;display:block"></i>
       <div style="font-size:13px;font-weight:600;margin-bottom:4px">Accounting</div>
       <div style="font-size:11px;color:var(--mt)">Expenses, P&amp;L, payables</div>
+    </div>
+  </div>
+
+  <!-- FINANCE / ACCOUNTING PANEL -->
+  <div id="finance-mod" style="display:none;flex-direction:column;gap:14px;margin-top:18px;padding:22px;background:var(--card);box-shadow:0 10px 25px rgba(0,0,0,0.25);border-radius:10px;">
+    <div style="font-size:15px;font-weight:600;color:#e8ecf4;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-shrink:0;">
+      <span style="flex:1"><i class="fas fa-calculator" style="color:#22c55e;margin-right:8px"></i> Accounting &amp; Financial Control</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="date" id="fin-st" style="background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:6px 8px;color:var(--tx);font-size:11px"/>
+        <span style="color:var(--mt);font-size:11px">to</span>
+        <input type="date" id="fin-en" style="background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:6px 8px;color:var(--tx);font-size:11px"/>
+        <button class="btn btn-out" onclick="openFinancePanel()"><i class="fas fa-arrows-rotate"></i></button>
+        <i class="fas fa-xmark" style="cursor:pointer;color:var(--mt)" onclick="document.getElementById('finance-mod').style.display='none'"></i>
+      </div>
+    </div>
+
+    <div id="finance-kpis" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;flex-shrink:0;">
+      <div class="crd" style="padding:14px;text-align:center"><div style="font-size:11px;color:var(--mt)">Sales</div><div style="font-size:18px;font-weight:600;color:var(--tx)" id="fin-sales">₹0.00</div></div>
+      <div class="crd" style="padding:14px;text-align:center"><div style="font-size:11px;color:var(--mt)">Expenses</div><div style="font-size:18px;font-weight:600;color:#ef4444" id="fin-expenses">₹0.00</div></div>
+      <div class="crd" style="padding:14px;text-align:center"><div style="font-size:11px;color:var(--mt)">Gross Profit</div><div style="font-size:18px;font-weight:600;color:#22c55e" id="fin-gross">₹0.00</div></div>
+      <div class="crd" style="padding:14px;text-align:center"><div style="font-size:11px;color:var(--mt)">Net Profit</div><div style="font-size:18px;font-weight:600;color:#60a5fa" id="fin-net">₹0.00</div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1.1fr 0.9fr;gap:12px;min-height:0;flex:1;">
+      <div class="crd" style="padding:14px;display:flex;flex-direction:column;min-height:0;">
+        <div class="sec-hd" style="margin-bottom:10px"><span class="sec-t" style="font-size:13px">Expense Entry</span><span id="fin-status" style="font-size:11px;color:var(--mt)">Ready</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <input type="date" id="exp-date" style="background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px 9px;color:var(--tx)"/>
+          <input type="text" id="exp-cat" placeholder="Category" style="background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px 9px;color:var(--tx)"/>
+          <input type="number" id="exp-amt" placeholder="Amount" min="0" step="0.01" style="background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px 9px;color:var(--tx)"/>
+          <input type="text" id="exp-voucher" placeholder="Voucher No." style="background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px 9px;color:var(--tx)"/>
+        </div>
+        <textarea id="exp-desc" rows="3" placeholder="Description" style="background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px 9px;color:var(--tx);margin-bottom:8px"></textarea>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+          <label style="font-size:11px;color:var(--mt)"><input type="checkbox" id="exp-gst"/> GST applicable</label>
+          <input type="number" id="exp-gst-amt" placeholder="GST Amt" min="0" step="0.01" style="width:120px;background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px 9px;color:var(--tx)"/>
+          <button class="btn btn-acc" onclick="saveExpense()"><i class="fas fa-floppy-disk"></i>Save Expense</button>
+        </div>
+        <div class="tw" style="overflow:auto;flex:1;max-height:330px">
+          <table>
+            <thead><tr><th>Date</th><th>Category</th><th>Amount</th><th>Voucher</th><th style="text-align:right">Action</th></tr></thead>
+            <tbody id="expense-body"><tr><td colspan="5" style="text-align:center;color:var(--dim)">No expenses loaded.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;min-height:0;">
+        <div class="crd" style="padding:14px;min-height:0;flex:1;display:flex;flex-direction:column;">
+          <div class="sec-hd" style="margin-bottom:10px"><span class="sec-t" style="font-size:13px">Supplier Payables</span><span id="payable-total" style="font-size:11px;color:var(--mt)">₹0.00</span></div>
+          <div class="tw" style="overflow:auto;flex:1;max-height:260px">
+            <table>
+              <thead><tr><th>Supplier</th><th>Payable</th><th>Payments</th><th style="text-align:right">Action</th></tr></thead>
+              <tbody id="payable-body"><tr><td colspan="4" style="text-align:center;color:var(--dim)">Loading payables...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="crd" style="padding:14px;min-height:0;flex:1;display:flex;flex-direction:column;">
+          <div class="sec-hd" style="margin-bottom:10px"><span class="sec-t" style="font-size:13px">Daily Sales</span><span id="sales-bill-count" style="font-size:11px;color:var(--mt)">0 bills</span></div>
+          <div class="tw" style="overflow:auto;flex:1;max-height:260px">
+            <table>
+              <thead><tr><th>Date</th><th>Bills</th><th>Gross</th><th>Net</th></tr></thead>
+              <tbody id="daily-sales-body"><tr><td colspan="4" style="text-align:center;color:var(--dim)">Loading sales...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div></div>
@@ -2484,6 +2483,7 @@ function rGstRep() {
     }
 
     function openFinancePanel(){
+      sw('utilities', document.querySelector('.ni[data-panel="utilities"]'));
       const modal = document.getElementById('finance-mod');
       const today = new Date().toISOString().slice(0,10);
       if(!document.getElementById('fin-st').value) document.getElementById('fin-st').value = today;
@@ -2538,9 +2538,9 @@ function rGstRep() {
       status.textContent = 'Loading...';
       try {
         const [summaryRes, expensesRes, payablesRes] = await Promise.all([
-          fetch(financeUrl('summary')),
-          fetch(financeUrl('expenses')),
-          fetch(financeUrl('supplier-payables')),
+           fetch(financeUrl('summary')), // Summary with date filter (for P&L, daily sales)
+           fetch('/api/finance/expenses?t='+Date.now()), // Load ALL expenses (no date filter)
+           fetch('/api/finance/supplier-payables?t='+Date.now()), // Load ALL supplier payables (no date filter - show what you OWE total)
         ]);
         const summary = await summaryRes.json();
         const expenses = await expensesRes.json();
@@ -2882,5 +2882,6 @@ sw = function(k, el) {
     </div>
   </div>
 </div>
+
 </body>
 </html>
