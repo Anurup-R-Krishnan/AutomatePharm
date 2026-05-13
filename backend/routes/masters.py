@@ -7,6 +7,7 @@ from ..extensions import db
 from ..models.core import Customer, Doctor, Role, Supplier, User
 from ..models.lookups import PaymentMode
 from ..models.sales import ReceiptPayment, SalesBill
+from ..analytics_logic import get_personalized_suggestions
 
 
 masters_bp = Blueprint("masters", __name__)
@@ -281,6 +282,49 @@ def get_customer_family(id):
             ],
         }
     )
+
+
+@masters_bp.route("/api/customers/<id>/suggestions", methods=["GET"])
+def get_customer_suggestions(id):
+    """
+    Get personalized medicine suggestions for a customer based on:
+    - Customer's purchase history
+    - Market basket analysis (items frequently bought together)
+    - Top moving items in inventory
+    
+    Query parameters:
+    - limit: Number of suggestions (default: 10, max: 50)
+    - days_back: Look back window for analysis (default: 90)
+    - exclude_recent_days: Exclude items purchased recently (default: 30)
+    """
+    customer = Customer.query.get(id)
+    if not customer:
+        return json_error("Customer not found", 404)
+    
+    limit = min(int(request.args.get("limit", 10)), 50)
+    days_back = int(request.args.get("days_back", 90))
+    exclude_recent_days = int(request.args.get("exclude_recent_days", 30))
+    
+    try:
+        suggestions = get_personalized_suggestions(
+            customer_id=int(id),
+            limit=limit,
+            days_back=days_back,
+            exclude_recent_days=exclude_recent_days
+        )
+        return jsonify({
+            "customer_id": int(id),
+            "customer_name": customer.customer_name,
+            "suggestions": suggestions,
+            "count": len(suggestions),
+            "parameters": {
+                "limit": limit,
+                "days_back": days_back,
+                "exclude_recent_days": exclude_recent_days
+            }
+        })
+    except Exception as err:
+        return json_error("Failed to generate suggestions", 500, str(err))
 
 
 @masters_bp.route("/api/doctors", methods=["GET"])
