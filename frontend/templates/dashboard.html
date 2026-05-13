@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}"/>
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script defer src="{{ url_for('static', filename='face-api.min.js') }}"></script>
 </head>
 <body>
@@ -27,6 +28,7 @@
   <div class="ni" data-panel="system" onclick="sw('system',this)"><i class="fas fa-display"></i><span>System</span></div>
   <div class="ni" data-panel="utilities" onclick="sw('utilities',this)"><i class="fas fa-hard-drive"></i><span>Utilities</span></div>
   <div class="ni" data-panel="sms" onclick="sw('sms',this)"><i class="fas fa-comment-dots"></i><span>SMS</span></div>
+  <div class="ni" data-panel="insights" onclick="sw('insights',this)"><i class="fas fa-chart-line"></i><span>Data Insights</span></div>
   <div class="sp"></div>
   <div class="nl">OTHER</div>
   <div class="ni" data-panel="users" onclick="sw('users',this)"><i class="fas fa-users-gear"></i><span>Users & Access</span></div>
@@ -494,6 +496,91 @@
           <tr><td>87654 32109</td><td>Expiry reminder</td><td><span class="bx bg">Sent</span></td><td>14:00</td></tr>
           <tr><td>76543 21098</td><td>Low stock alert</td><td><span class="bx br">Failed</span></td><td>13:45</td></tr>
         </tbody>
+      </table></div>
+    </div>
+  </div>
+</div></div>
+<!-- INSIGHTS -->
+<div class="pn" id="p-insights"><div class="pg">
+  <div class="sec-hd">
+    <span class="sec-t">ML-Powered Sales &amp; Business Insights</span>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <div style="position:relative;">
+        <button class="btn btn-out" onclick="document.getElementById('insights-toggles').style.display=document.getElementById('insights-toggles').style.display==='none'?'block':'none'">
+          <i class="fas fa-sliders"></i> Customize View
+        </button>
+        <div id="insights-toggles" style="display:none;position:absolute;top:40px;right:0;background:var(--card);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:12px;z-index:100;width:200px;box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+          <div style="font-size:10px;color:var(--mt);margin-bottom:8px;font-weight:700;text-transform:uppercase;">Toggle Visibility</div>
+          <label style="display:flex;align-items:center;gap:10px;margin-bottom:8px;cursor:pointer;font-size:12px;">
+            <input type="checkbox" checked onchange="toggleInsight('sec-forecast', this.checked)"> Sales Forecast
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;margin-bottom:8px;cursor:pointer;font-size:12px;">
+            <input type="checkbox" checked onchange="toggleInsight('sec-fmcg', this.checked)"> Fast Moving Items
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;margin-bottom:8px;cursor:pointer;font-size:12px;">
+            <input type="checkbox" checked onchange="toggleInsight('sec-basket', this.checked)"> Market Basket
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:12px;">
+            <input type="checkbox" checked onchange="toggleInsight('sec-churn', this.checked)"> Customer Churn
+          </label>
+        </div>
+      </div>
+      <button class="btn btn-out" onclick="rInsights()"><i class="fas fa-rotate"></i> Refresh Insights</button>
+    </div>
+  </div>
+  
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <div id="sec-forecast" class="crd" style="padding:24px; display:flex; flex-direction:column; min-height:400px;">
+      <div style="font-size:14px;font-weight:600;margin-bottom:15px;display:flex;justify-content:space-between;align-items:center;">
+        <div style="display:flex;align-items:center;gap:10px">
+          <i class="fas fa-chart-line" style="color:var(--acc)"></i>
+          <span>Sales Forecast (Next 7 Days)</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <div id="btn-toggle-hist" onclick="toggleDataset(0, this)" style="cursor:pointer;font-size:10px;padding:4px 10px;border-radius:20px;background:#3b82f6;color:#fff;font-weight:700;transition:0.3s;box-shadow:0 0 10px rgba(59,130,246,0.3)">
+            <i class="fas fa-history"></i> History
+          </div>
+          <div id="btn-toggle-ai" onclick="toggleDataset(1, this)" style="cursor:pointer;font-size:10px;padding:4px 10px;border-radius:20px;background:#f5a623;color:#fff;font-weight:700;transition:0.3s;box-shadow:0 0 10px rgba(245,166,35,0.3)">
+            <i class="fas fa-robot"></i> AI Prediction
+          </div>
+          <span id="forecast-trend" class="hold-chip" style="font-size:10px;font-weight:700">STABLE</span>
+        </div>
+      </div>
+      <div style="flex:1; position:relative;"><canvas id="forecastChart"></canvas></div>
+    </div>
+
+    <!-- Fast Moving Items -->
+    <div id="sec-fmcg" class="crd" style="padding:24px; display:flex; flex-direction:column; min-height:360px;">
+      <div style="font-size:14px;font-weight:600;margin-bottom:15px;">
+        <i class="fas fa-bolt" style="color:#ef4444;margin-right:8px"></i> Fast Moving Items (FMCG)
+      </div>
+      <div class="tw" style="flex:1; overflow-y:auto;"><table>
+        <thead><tr><th>Medicine</th><th style="text-align:right">Units Sold</th></tr></thead>
+        <tbody id="top-items-body"><tr><td colspan="2" style="text-align:center;padding:40px;color:var(--dim)">Calculating volume...</td></tr></tbody>
+      </table></div>
+    </div>
+
+    <!-- Market Basket -->
+    <div id="sec-basket" class="crd" style="padding:24px; display:flex; flex-direction:column; min-height:360px;">
+      <div style="font-size:14px;font-weight:600;margin-bottom:15px;">
+        <i class="fas fa-layer-group" style="color:#22c55e;margin-right:8px"></i> Market Basket Affinity
+      </div>
+      <div style="font-size:11px;color:var(--mt);margin-bottom:12px">Hidden cross-selling patterns detected in bills.</div>
+      <div class="tw" style="flex:1; overflow-y:auto;"><table>
+        <thead><tr><th>Item A</th><th>Item B</th><th style="text-align:right">Freq</th></tr></thead>
+        <tbody id="basket-body"><tr><td colspan="3" style="text-align:center;padding:40px;color:var(--dim)">Analyzing patterns...</td></tr></tbody>
+      </table></div>
+    </div>
+
+    <!-- Churn Risk -->
+    <div id="sec-churn" class="crd" style="padding:24px; display:flex; flex-direction:column; min-height:360px;">
+      <div style="font-size:14px;font-weight:600;margin-bottom:15px;">
+        <i class="fas fa-user-clock" style="color:#a78bfa;margin-right:8px"></i> Customer Churn Risk
+      </div>
+      <div style="font-size:11px;color:var(--mt);margin-bottom:12px">Inactive high-value customers (>60 days).</div>
+      <div class="tw" style="flex:1; overflow-y:auto;"><table>
+        <thead><tr><th>Customer</th><th>Last Visit</th><th style="text-align:right">Spend</th></tr></thead>
+        <tbody id="churn-body"><tr><td colspan="3" style="text-align:center;padding:40px;color:var(--dim)">Identifying...</td></tr></tbody>
       </table></div>
     </div>
   </div>
@@ -2516,6 +2603,211 @@ function rGstRep() {
         alert(error.message || 'Failed to record supplier payment');
       }
     }
+let forecastChart = null;
+async function rInsights() {
+    try {
+        const r = await fetch(API + '/analytics/summary');
+        const data = await r.json();
+        if(data.status !== 'success') return;
+
+        // Render Forecast Chart
+        const ctx = document.getElementById('forecastChart').getContext('2d');
+        
+        const formatDate = (ds) => {
+            const d = new Date(ds);
+            return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+        };
+
+        const labels = data.forecast.historical.map(h => formatDate(h.date))
+                        .concat(data.forecast.forecast.map(f => formatDate(f.date)));
+        const historyData = data.forecast.historical.map(h => h.total);
+        const forecastData = Array(historyData.length - 1).fill(null)
+                            .concat([historyData[historyData.length-1]]) 
+                            .concat(data.forecast.forecast.map(f => f.predicted_sales));
+        
+        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+        gradient.addColorStop(0, 'rgba(59, 130, 246, 0.5)');
+        gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
+
+        const trend = document.getElementById('forecast-trend');
+        const growth = (data.forecast.growth_rate * 100).toFixed(1);
+        trend.innerHTML = `<i class="fas fa-arrow-${data.forecast.growth_rate >= 0 ? 'up' : 'down'}"></i> ${Math.abs(growth)}% ${data.forecast.trend.toUpperCase()}`;
+        trend.style.background = data.forecast.trend === 'up' ? '#22c55e20' : data.forecast.trend === 'down' ? '#ef444420' : '#3b82f620';
+        trend.style.color = data.forecast.trend === 'up' ? '#22c55e' : data.forecast.trend === 'down' ? '#ef4444' : '#3b82f6';
+
+        if(forecastChart) forecastChart.destroy();
+        forecastChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Historical Revenue',
+                        data: historyData,
+                        borderColor: '#3b82f6',
+                        borderWidth: 4,
+                        backgroundColor: gradient,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        pointHoverRadius: 6,
+                        pointHoverBackgroundColor: '#3b82f6',
+                        pointHoverBorderColor: '#fff',
+                        pointHoverBorderWidth: 2,
+                        shadowBlur: 10,
+                        shadowColor: 'rgba(59, 130, 246, 0.5)',
+                    },
+                    {
+                        label: 'AI Prediction',
+                        data: forecastData,
+                        borderColor: '#f5a623',
+                        borderWidth: 4,
+                        borderDash: [8, 5],
+                        backgroundColor: 'transparent',
+                        fill: false,
+                        tension: 0.4,
+                        pointRadius: 5,
+                        pointBackgroundColor: '#f5a623',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        shadowBlur: 15,
+                        shadowColor: 'rgba(245, 166, 35, 0.6)',
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 2500, easing: 'easeOutQuart' },
+                interaction: { intersect: false, mode: 'index' },
+                scales: {
+                    y: { 
+                        beginAtZero: true, 
+                        grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false },
+                        ticks: { color: '#64748b', font: { size: 10, weight: '600' }, callback: v => '₹' + v.toLocaleString() }
+                    },
+                    x: { 
+                        grid: { display: false },
+                        ticks: { color: '#64748b', font: { size: 10, weight: '600' }, maxTicksLimit: 8 }
+                    }
+                },
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(28, 32, 50, 0.95)',
+                        titleColor: '#94a3b8',
+                        titleFont: { size: 11, weight: '700' },
+                        bodyColor: '#e2e8f0',
+                        bodyFont: { size: 13, weight: '600' },
+                        borderColor: '#334155',
+                        borderWidth: 1,
+                        padding: 14,
+                        cornerRadius: 10,
+                        displayColors: true,
+                        callbacks: {
+                            label: function(context) {
+                                return ' ' + context.dataset.label + ': ₹' + context.parsed.y.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            },
+            plugins: [{
+                id: 'shadowPlugin',
+                beforeDraw: (chart) => {
+                    const { ctx } = chart;
+                    ctx.save();
+                    chart.data.datasets.forEach((dataset, i) => {
+                        if (dataset.shadowBlur) {
+                            ctx.shadowBlur = dataset.shadowBlur;
+                            ctx.shadowColor = dataset.shadowColor;
+                        }
+                    });
+                },
+                afterDraw: (chart) => {
+                    chart.ctx.restore();
+                }
+            }]
+        });
+
+        // Top Items with progress bars
+        const topBody = document.getElementById('top-items-body');
+        const maxQty = data.top_moving_items.length > 0 ? data.top_moving_items[0].quantity : 1;
+        topBody.innerHTML = data.top_moving_items.map(i => `
+            <tr>
+                <td style="padding:14px 14px 10px">
+                    <div style="font-weight:600;margin-bottom:6px">${i.name}</div>
+                    <div style="height:4px;background:rgba(255,255,255,0.05);border-radius:10px;overflow:hidden">
+                        <div style="width:${(i.quantity/maxQty*100)}%;height:100%;background:linear-gradient(90deg, #ef4444, #f5a623);border-radius:10px"></div>
+                    </div>
+                </td>
+                <td style="text-align:right;font-weight:700;color:var(--tx);font-size:14px;padding-top:14px">${i.quantity} <span style="font-size:10px;color:var(--dim);font-weight:400">units</span></td>
+            </tr>
+        `).join('') || '<tr><td colspan="2" style="text-align:center;padding:40px">No data</td></tr>';
+
+        // Market Basket with affinity tags
+        const basketBody = document.getElementById('basket-body');
+        basketBody.innerHTML = data.market_basket.map(b => `
+            <tr>
+                <td style="padding:14px">
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <span style="font-weight:600;color:var(--tx)">${b.item1}</span>
+                        <i class="fas fa-plus" style="font-size:9px;color:var(--dim)"></i>
+                        <span style="font-weight:600;color:var(--tx)">${b.item2}</span>
+                    </div>
+                </td>
+                <td style="text-align:right;padding:14px"><span class="hold-chip" style="background:#22c55e20;color:#22c55e;border:none;padding:4px 10px;font-weight:700">${b.frequency} Matches</span></td>
+            </tr>
+        `).join('') || '<tr><td colspan="3" style="text-align:center;padding:40px">No patterns found</td></tr>';
+
+        // Churn Risk with "Action" buttons
+        const churnBody = document.getElementById('churn-body');
+        churnBody.innerHTML = data.churn_risk.map(c => `
+            <tr>
+                <td style="padding:14px">
+                    <div style="font-weight:600">${c.name}</div>
+                    <div style="font-size:11px;color:var(--mt)">${c.phone}</div>
+                </td>
+                <td style="padding:14px">
+                    <div style="font-weight:600">₹${c.total_spend.toLocaleString()}</div>
+                    <div style="font-size:10px;color:#ef4444">${c.days_since_last_visit} days ago</div>
+                </td>
+                <td style="text-align:right;padding:14px"><button class="btn btn-out" style="padding:5px 10px;font-size:10px" onclick="sw('sms')">Notify</button></td>
+            </tr>
+        `).join('') || '<tr><td colspan="3" style="text-align:center;padding:40px">No high-risk customers</td></tr>';
+
+    } catch (e) {
+        console.error('Analytics load failed:', e);
+    }
+}
+
+function toggleDataset(index, btn) {
+    if(!forecastChart) return;
+    const isVisible = forecastChart.isDatasetVisible(index);
+    if(isVisible) {
+        forecastChart.hide(index);
+        btn.style.background = '#334155';
+        btn.style.boxShadow = 'none';
+        btn.style.opacity = '0.6';
+    } else {
+        forecastChart.show(index);
+        btn.style.background = index === 0 ? '#3b82f6' : '#f5a623';
+        btn.style.boxShadow = index === 0 ? '0 0 10px rgba(59,130,246,0.3)' : '0 0 10px rgba(245,166,35,0.3)';
+        btn.style.opacity = '1';
+    }
+}
+
+function toggleInsight(id, show) {
+    const el = document.getElementById(id);
+    if(el) el.style.display = show ? 'flex' : 'none';
+}
+
+// Update sw function to load insights
+const oldSw = sw;
+sw = function(k, el) {
+    oldSw(k, el);
+    if(k === 'insights') rInsights();
+};
 </script>
 
 <!-- LEDGER MODAL -->
