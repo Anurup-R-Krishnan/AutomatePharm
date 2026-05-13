@@ -28,6 +28,9 @@ class User(db.Model):
     user_id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     username = db.Column(db.String(50), nullable=False, unique=True)
     name = db.Column(db.String(100))
+    title = db.Column(db.String(10), nullable=True)  # Sir/Mam
+    face_embedding = db.Column(db.JSON, nullable=True)
+    last_face_scan_at = db.Column(db.DateTime, nullable=True)
     phone = db.Column(db.String(20))
     password_hash = db.Column(db.Text, nullable=False)
     role_id = db.Column(db.Integer, db.ForeignKey('roles.role_id'), nullable=False)
@@ -251,6 +254,7 @@ class Customer(db.Model):
 
     customer_id = db.Column(db.Integer, primary_key=True)
     customer_name = db.Column(db.String(150), nullable=False)
+    title = db.Column(db.String(10), nullable=True)  # Sir/Mam
     phone = db.Column(db.String(20))
     doctor_id = db.Column(db.Integer, db.ForeignKey('doctors.doctor_id'))
     address = db.Column(db.Text)

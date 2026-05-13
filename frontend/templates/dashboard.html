@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}"/>
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script defer src="{{ url_for('static', filename='face-api.min.js') }}"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 </head>
 <body>
 <!-- SIDEBAR -->
@@ -42,6 +42,7 @@
     <div class="fy">FY:&nbsp;2026-2027</div>
     <div class="db"><span class="d" id="hd"></span><span class="w" id="hw"></span></div>
     <span class="ck" id="hc"></span>
+
     <div class="ua" style="margin-left:auto;gap:6px">
       <div class="uai"><i class="fas fa-user"></i></div>
       <select id="user-switch" style="background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:5px 8px;color:var(--tx);font-size:11px;outline:none;font-family:'Inter',sans-serif;max-width:160px"></select>
@@ -368,9 +369,17 @@
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
       <input type="hidden" id="u-id"/>
       <input type="text" id="u-name" placeholder="Name" style="min-width:150px;background:#252a40;border:1px solid var(--brd);border-radius:7px;padding:7px 10px;color:var(--tx)"/>
+      <select id="u-title" style="background:#252a40;border:1px solid var(--brd);border-radius:7px;padding:7px 10px;color:var(--tx)">
+        <option value="Sir">Sir</option>
+        <option value="Mam">Mam</option>
+        <option value="Mr.">Mr.</option>
+        <option value="Mrs.">Mrs.</option>
+      </select>
       <input type="text" id="u-user" placeholder="Username" style="min-width:150px;background:#252a40;border:1px solid var(--brd);border-radius:7px;padding:7px 10px;color:var(--tx)"/>
       <input type="text" id="u-phone" placeholder="Contact" style="min-width:150px;background:#252a40;border:1px solid var(--brd);border-radius:7px;padding:7px 10px;color:var(--tx)"/>
       <input type="text" id="u-code" placeholder="Code" style="min-width:100px;background:#252a40;border:1px solid var(--brd);border-radius:7px;padding:7px 10px;color:var(--tx)"/>
+      <input type="hidden" id="u-face"/>
+      <button class="btn btn-out" id="u-btn-scan" onclick="enrollUserFace(event)" title="Enroll Staff Face"><i class="fas fa-camera"></i></button>
       <input type="password" id="u-pass" placeholder="Login Password" style="min-width:150px;background:#252a40;border:1px solid var(--brd);border-radius:7px;padding:7px 10px;color:var(--tx)"/>
       <select id="u-role" style="background:#252a40;border:1px solid var(--brd);border-radius:7px;padding:7px 10px;color:var(--tx)">
         <option value="junior">Junior Staff</option>
@@ -606,6 +615,13 @@
   <div class="crd fm" style="width:320px;padding:22px;background:var(--card);box-shadow:0 10px 25px rgba(0,0,0,0.5);">
     <div style="font-size:15px;font-weight:600;margin-bottom:16px;color:#e8ecf4;display:flex;justify-content:space-between;align-items:center;"><span id="cust-title">Add Customer</span><i class="fas fa-xmark" style="cursor:pointer" onclick="document.getElementById('cust-mod').style.display='none'"></i></div>
     <input type="hidden" id="c-id"/><input type="hidden" id="c-face"/>
+    <label>Title</label>
+    <select id="c-title" style="width:100%;margin-bottom:8px;background:#252a40;border:1px solid var(--brd);border-radius:7px;padding:8px;color:var(--tx)">
+      <option value="Sir">Sir</option>
+      <option value="Mam">Mam</option>
+      <option value="Mr.">Mr.</option>
+      <option value="Mrs.">Mrs.</option>
+    </select>
     <label>Customer Name</label><input type="text" id="c-n"/><label>Phone</label><input type="text" id="c-p"/><label>Address</label><input type="text" id="c-a"/><label>Email</label><input type="text" id="c-e"/>
     <div style="text-align:center; margin-bottom: 8px;">
       <video id="c-vid" autoplay playsinline style="width:100%;height:150px;object-fit:cover;display:none;margin-bottom:8px;border-radius:8px;transform:scaleX(-1)"></video>
@@ -667,14 +683,18 @@
   </div>
 </div>
 <!-- Face Scan Modal -->
-<div id="face-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center; backdrop-filter:blur(4px)">
-  <div style="background:var(--card); border:1px solid var(--acc); padding:30px; border-radius:12px; text-align:center; width:280px; box-shadow:0 10px 40px rgba(0,0,0,0.5)">
-    <h3 style="color:var(--acc); margin-bottom:20px; font-size:14px; font-weight:600; letter-spacing:1px"><i class="fas fa-expand fa-spin" style="margin-right:6px"></i> SCANNING BIOMETRICS</h3>
-    <div style="width:120px; height:120px; border:2px dashed rgba(245,166,35,0.3); margin:0 auto 20px; border-radius:50%; position:relative; overflow:hidden">
+<div id="face-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.9); z-index:9999; justify-content:center; align-items:center; backdrop-filter:blur(8px)">
+  <div style="background:var(--card); border:1px solid var(--acc); padding:40px; border-radius:16px; text-align:center; width:480px; box-shadow:0 20px 60px rgba(0,0,0,0.6); position:relative;">
+    <button onclick="cancelFaceScan()" style="position:absolute; top:15px; right:15px; background:none; border:none; color:var(--mt); cursor:pointer; font-size:18px;"><i class="fas fa-times"></i></button>
+    <h3 style="color:var(--acc); margin-bottom:25px; font-size:16px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase;"><i class="fas fa-shield-halved fa-beat" style="margin-right:8px"></i> Biometric Scan</h3>
+    <div style="width:340px; height:340px; border:3px solid rgba(245,166,35,0.2); margin:0 auto 25px; border-radius:12px; position:relative; overflow:hidden; box-shadow: 0 0 30px rgba(245,166,35,0.1)">
        <video id="face-vid" autoplay playsinline style="width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0; z-index:1; transform: scaleX(-1);"></video>
-       <div id="face-scanline" style="position:absolute; top:0; left:0; right:0; height:6px; background:rgba(245,166,35,0.8); box-shadow:0 0 15px var(--acc); animation: scanline 1.2s infinite alternate linear; z-index:5;"></div>
+       <div id="face-scanline" style="position:absolute; top:0; left:0; right:0; height:4px; background:linear-gradient(to right, transparent, var(--acc), transparent); box-shadow:0 0 20px var(--acc); animation: scanline 2s infinite alternate ease-in-out; z-index:5;"></div>
     </div>
-    <p id="face-status" style="font-size:12px; color:var(--tx); font-weight:500">Please look directly at camera.</p>
+    <p id="face-status" style="font-size:14px; color:var(--tx); font-weight:600; min-height:1.2em">Initializing neural engine...</p>
+    <div style="display:flex; gap:10px; margin-top:20px;">
+       <button class="btn btn-out" onclick="cancelFaceScan()" style="flex:1; padding:10px; border-radius:8px; font-size:12px; font-weight:600">Cancel</button>
+    </div>
   </div>
 </div>
 <script>
@@ -787,6 +807,7 @@ async function triggerFaceScan() {
          const [mName, mPhone] = bestMatch.label.split('|');
          document.getElementById('face-status').textContent = `Match Found: ${mName} (${(100 - bestMatch.distance * 100).toFixed(0)}%)`;
          document.getElementById('face-status').style.color = '#22c55e';
+         speakGreeting(mName, '');
          setTimeout(() => {
            if(faceStream){ faceStream.getTracks().forEach(t=>t.stop()); faceStream=null; }
            modal.style.display = 'none';
@@ -2580,6 +2601,47 @@ sw = function(k, el) {
     oldSw(k, el);
     if(k === 'insights') rInsights();
 };
+// AUDIO SYSTEM
+let audioUnlocked = false;
+function initAudio() {
+    if (audioUnlocked) return;
+    if (!window.speechSynthesis) return;
+    const dummy = new SpeechSynthesisUtterance(' ');
+    dummy.onend = () => {
+        audioUnlocked = true;
+        console.log('Audio unlocked via dummy utterance');
+        const btn = document.getElementById('audio-enable-btn');
+        if (btn) btn.style.display = 'none';
+    };
+    window.speechSynthesis.speak(dummy);
+}
+const enableAudio = initAudio;
+document.addEventListener('click', initAudio, { once: true });
+
+function speakGreeting(name, title) {
+    console.log('DEBUG: Attempting to speak:', name);
+    if (!window.speechSynthesis) return;
+    if (!audioUnlocked) {
+        initAudio();
+        setTimeout(() => speakGreeting(name, title), 500);
+        return;
+    }
+    window.speechSynthesis.cancel();
+    const hour = new Date().getHours();
+    const greet = hour < 12 ? 'Good morning' : (hour < 17 ? 'Good afternoon' : 'Good evening');
+    const text = `${greet} ${name} ${title || ''}. Welcome to Selvam Medicals.`;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) utterance.voice = voices[0];
+    utterance.volume = 1;
+    utterance.rate = 1;
+    const status = document.getElementById('face-status');
+    utterance.onstart = () => { if (status) status.innerHTML = "<i class='fas fa-circle-check' style='color:#22c55e'></i> Identity Verified"; };
+    utterance.onend = () => { if (status) status.innerHTML = "Biometric Scan Complete"; };
+    utterance.onerror = (err) => { console.error('Speech error:', err); if (status) status.innerHTML = '<i class="fas fa-circle-xmark" style="color:#ef4444"></i> Voice Error'; };
+    window.speechSynthesis.speak(utterance);
+}
 </script>
 
 <!-- LEDGER MODAL -->
@@ -2634,5 +2696,6 @@ sw = function(k, el) {
     </div>
   </div>
 </div>
+
 </body>
 </html>

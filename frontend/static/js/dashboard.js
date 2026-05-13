@@ -1,76 +1,92 @@
-let rxBase64 = '';
-function attachRx(input) {
-  if (input.files && input.files[0]) {
-    const file = input.files[0];
-    const btn = document.getElementById('btn-rx');
-    const prev = document.getElementById('rx-preview');
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-    
-    // If it's a PDF, we can't compress with canvas - just use raw Base64
-    if (file.type === 'application/pdf') {
-        const reader = new FileReader();
-        reader.onload = e => {
-            rxBase64 = e.target.result;
-            btn.innerHTML = `<i class="fas fa-check" style="color:#22c55e"></i> Prescription Attached (PDF)`;
-            btn.style.borderColor = '#22c55e'; btn.style.color = '#22c55e';
-            if(prev) { prev.style.display = 'none'; }
-        };
-        reader.readAsDataURL(file);
+
+function beep() {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (ctx.state === 'suspended') ctx.resume();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = 880; 
+        gain.gain.setValueAtTime(0, ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 0.01);
+        gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.2);
+    } catch(e) { console.error("Beep error:", e); }
+}
+
+// Audio unlock helper – runs on first user click
+let audioUnlocked = false;
+function initAudio() {
+    if (audioUnlocked) return;
+    if (!window.speechSynthesis) return;
+    const dummy = new SpeechSynthesisUtterance(' ');
+    dummy.onend = () => {
+        audioUnlocked = true;
+        console.log('Audio unlocked via dummy utterance');
+        const btn = document.getElementById('audio-enable-btn');
+        if (btn) btn.style.display = 'none';
+    };
+    window.speechSynthesis.speak(dummy);
+}
+const enableAudio = initAudio;
+// Register a one‑time click listener to trigger the unlock
+document.addEventListener('click', initAudio, { once: true });
+
+function speakGreeting(name, title) {
+    console.log('DEBUG: Attempting to speak:', name);
+    if (!window.speechSynthesis) return;
+    // If audio not unlocked yet, unlock and retry after short delay
+    if (!audioUnlocked) {
+        initAudio();
+        setTimeout(() => speakGreeting(name, title), 500);
         return;
     }
-
-    const img = new Image();
-    const objUrl = URL.createObjectURL(file);
-    img.onload = () => {
-        try {
-            const MAX_W = 800;
-            const scale = Math.min(1, MAX_W / img.width);
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width * scale;
-            canvas.height = img.height * scale;
-            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-            rxBase64 = canvas.toDataURL('image/jpeg', 0.5);
-            if(prev) { prev.src = rxBase64; prev.style.display = 'block'; }
-            btn.innerHTML = `<i class="fas fa-check" style="color:#22c55e"></i> Prescription Attached`;
-        } catch(e) {
-            console.error('Compression failed, using raw:', e);
-            btn.innerHTML = `<i class="fas fa-check" style="color:#22c55e"></i> Prescription Attached`;
-        }
-        URL.revokeObjectURL(objUrl);
-    };
-    img.onerror = () => {
-        console.error('Image load failed, using raw FileReader fallback');
-        const reader = new FileReader();
-        reader.onload = e => {
-            rxBase64 = e.target.result;
-            btn.innerHTML = `<i class="fas fa-check" style="color:#22c55e"></i> Prescription Attached`;
-            btn.style.borderColor = '#22c55e'; btn.style.color = '#22c55e';
-        };
-        reader.readAsDataURL(file);
-    };
-    img.src = objUrl;
-  }
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+    const hour = new Date().getHours();
+    const greet = hour < 12 ? 'Good morning' : (hour < 17 ? 'Good afternoon' : 'Good evening');
+    const text = `${greet} ${name} ${title || ''}. Welcome to Selvam Medicals.`;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) utterance.voice = voices[0];
+    utterance.volume = 1;
+    utterance.rate = 1;
+    const status = document.getElementById('face-status');
+    utterance.onstart = () => { if (status) status.innerHTML = "🔊 <b style='color:#22c55e'>AI Voice Active...</b>"; };
+    utterance.onend = () => { if (status) status.innerHTML = "Biometric Scan Complete"; };
+    utterance.onerror = (err) => { console.error('Speech error:', err); if (status) status.innerHTML = '❌ Voice Error'; };
+    window.speechSynthesis.speak(utterance);
 }
-let faceStream = null;
+
+function cancelFaceScan() {
+    if(faceStream) {
+        faceStream.getTracks().forEach(t => t.stop());
+        faceStream = null;
+    }
+    document.getElementById('face-modal').style.display = 'none';
+}
+
+
 async function triggerFaceScan() {
-  if(!window.faceapi || !faceapi.nets.tinyFaceDetector.isLoaded) { alert('AI Models are still loading (about 5MB). Please try again in 5 seconds.'); return; }
+  if(!window.faceapi || !faceapi.nets.tinyFaceDetector.isLoaded) { alert('AI Models are still loading. Please try again in a few seconds.'); return; }
   const modal = document.getElementById('face-modal');
   const vid = document.getElementById('face-vid');
   modal.style.display = 'flex';
-  document.getElementById('face-status').textContent = 'Accessing camera...';
+  document.getElementById('face-status').textContent = 'Scanning...';
   document.getElementById('face-status').style.color = 'var(--tx)';
   
   try {
     faceStream = await navigator.mediaDevices.getUserMedia({video: {facingMode: 'user'}});
     vid.srcObject = faceStream;
-    document.getElementById('face-status').textContent = 'Analyzing facial features...';
     
     setTimeout(async () => {
       const det = await faceapi.detectSingleFace(vid, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
       if(!det) {
-         document.getElementById('face-status').textContent = 'No face detected. Try again.';
+         document.getElementById('face-status').textContent = 'No face detected.';
          document.getElementById('face-status').style.color = '#ef4444';
-         setTimeout(() => { if(faceStream){ faceStream.getTracks().forEach(t=>t.stop()); faceStream=null; } modal.style.display='none';}, 1500);
+         setTimeout(() => { cancelFaceScan(); }, 1500);
          return;
       }
       
@@ -79,15 +95,15 @@ async function triggerFaceScan() {
          if(c.face_vector && c.face_vector.length > 50) {
             try {
                const arr = new Float32Array(JSON.parse(c.face_vector));
-               labeled.push(new faceapi.LabeledFaceDescriptors(c.name + '|' + c.phone, [arr]));
+               labeled.push(new faceapi.LabeledFaceDescriptors(c.name + '|' + c.phone + '|' + (c.title || ''), [arr]));
             } catch(e){ console.error('Vector err:', e); }
          }
       });
       
       if(labeled.length === 0) {
-         document.getElementById('face-status').textContent = 'Database empty. No enrolled faces.';
+         document.getElementById('face-status').textContent = 'No enrolled faces found.';
          document.getElementById('face-status').style.color = '#ef4444';
-         setTimeout(() => { if(faceStream){ faceStream.getTracks().forEach(t=>t.stop()); faceStream=null; } modal.style.display='none';}, 2000);
+         setTimeout(() => { cancelFaceScan(); }, 2000);
          return;
       }
       
@@ -95,29 +111,30 @@ async function triggerFaceScan() {
       const bestMatch = faceMatcher.findBestMatch(det.descriptor);
       
       if(bestMatch.label === 'unknown') {
-         document.getElementById('face-status').textContent = 'New Face! Enrolling temporarily...';
+         document.getElementById('face-status').textContent = 'Customer not recognized.';
          document.getElementById('face-status').style.color = '#f5a623';
-         
-         let h=document.getElementById('pos-face-vector');
-         if(!h){ h=document.createElement('input');h.type='hidden';h.id='pos-face-vector';document.body.appendChild(h); }
-         h.value = JSON.stringify(Array.from(det.descriptor));
-         
-         setTimeout(() => { if(faceStream){ faceStream.getTracks().forEach(t=>t.stop()); faceStream=null; } modal.style.display='none'; document.getElementById('cn').focus(); }, 2000);
+         setTimeout(() => { cancelFaceScan(); }, 2000);
       } else {
-         const [mName, mPhone] = bestMatch.label.split('|');
-         document.getElementById('face-status').textContent = `Match Found: ${mName} (${(100 - bestMatch.distance * 100).toFixed(0)}%)`;
+         const parts = bestMatch.label.split('|');
+         const mName = parts[0];
+         const mPhone = parts[1];
+         const mTitle = parts[2] || '';
+         
+         document.getElementById('face-status').textContent = `Welcome ${mName}!`;
          document.getElementById('face-status').style.color = '#22c55e';
+         
+         speakGreeting(mName, mTitle);
+         
          setTimeout(() => {
-           if(faceStream){ faceStream.getTracks().forEach(t=>t.stop()); faceStream=null; }
-           modal.style.display = 'none';
+           cancelFaceScan();
            document.getElementById('cn').value = mName;
            document.getElementById('cp').value = mPhone;
-         }, 1200);
+           document.getElementById('cn').dispatchEvent(new Event('input'));
+         }, 1500);
       }
-    }, 1500);
+    }, 1000);
   } catch (err) {
-    document.getElementById('face-status').textContent = 'Camera access error: ' + err;
-    document.getElementById('face-status').style.color = '#ef4444';
+    document.getElementById('face-status').textContent = 'Camera error.';
     setTimeout(() => { modal.style.display = 'none'; }, 2000);
   }
 }
@@ -172,20 +189,8 @@ function saveHeldBills(){localStorage.setItem('heldBills',JSON.stringify(heldBil
 function saveConnectorSites(){localStorage.setItem('connectorSites',JSON.stringify(connectorSites));}
 
 function initUsers(){
-  APP_USERS=JSON.parse(localStorage.getItem('appUsers')||'[]');
-  if(!APP_USERS.length){
-    APP_USERS=[
-      {id:'owner-tech',name:'Owner Technical (You)',contact:'owner@local',role:'owner_technical',locked:true},
-      {id:'super-demo',name:'Super User',contact:'super@local',role:'super_user'},
-      {id:'manager-demo',name:'Manager',contact:'manager@local',role:'manager'},
-      {id:'user-demo',name:'Billing User',contact:'user@local',role:'user'}
-    ];
-    localStorage.setItem('appUsers',JSON.stringify(APP_USERS));
-  }
-  CUR_USER_ID=localStorage.getItem('currentUserId')||APP_USERS[0].id;
-  renderUserSwitch();
-  renderUsersPanel();
-  applyRoleAccess();
+  loadUsers();
+  CUR_USER_ID=localStorage.getItem('currentUserId') || 'admin';
 }
 
 function renderUserSwitch(){
@@ -212,15 +217,84 @@ function applyRoleAccess(){
   }
 }
 
+async function enrollUserFace(e) {
+  e.preventDefault();
+  if(!window.faceapi){ alert('AI Models are loading...'); return; }
+  const btn = document.getElementById('u-btn-scan');
+  // We need a video element for preview. We'll use the customer one for now or add a hidden one.
+  // Actually let's use the face-modal video element.
+  const modal = document.getElementById('face-modal');
+  const vid = document.getElementById('face-vid');
+  modal.style.display = 'flex';
+  document.getElementById('face-status').textContent = 'Position your face...';
+  
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({video: {facingMode: 'user'}});
+    vid.srcObject = s;
+    setTimeout(async () => {
+      const det = await faceapi.detectSingleFace(vid, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+      if(!det) { alert('No face detected!'); }
+      else {
+        document.getElementById('u-face').value = JSON.stringify(Array.from(det.descriptor));
+        btn.innerHTML = '<i class="fas fa-check" style="color:#22c55e"></i>';
+        btn.style.borderColor = '#22c55e';
+      }
+      s.getTracks().forEach(t=>t.stop());
+      modal.style.display = 'none';
+    }, 2000);
+  } catch(err) { alert('Camera err: '+err); modal.style.display='none'; }
+}
+
 function addAppUser(){
   const n=document.getElementById('u-name').value.trim();
+  const t=document.getElementById('u-title').value;
+  const u=document.getElementById('u-user').value.trim();
   const c=document.getElementById('u-phone').value.trim();
+  const cd=document.getElementById('u-code').value.trim();
+  const p=document.getElementById('u-pass').value;
   const r=document.getElementById('u-role').value;
-  if(!n){alert('Enter user name');return;}
-  APP_USERS.push({id:'u-'+Date.now(),name:n,contact:c,role:r});
-  localStorage.setItem('appUsers',JSON.stringify(APP_USERS));
-  document.getElementById('u-name').value='';document.getElementById('u-phone').value='';
-  renderUserSwitch();renderUsersPanel();applyRoleAccess();
+  const f=document.getElementById('u-face').value;
+  
+  if(!n || !u){alert('Enter name and username');return;}
+  
+  const payload = {
+    id: document.getElementById('u-id').value || null,
+    name: n,
+    title: t,
+    username: u,
+    phone: c,
+    code: cd,
+    password: p,
+    role: r,
+    face_vector: f
+  };
+
+  fetch(API+'/users', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(payload)
+  }).then(r=>r.json()).then(res=>{
+    if(res.status==='success'){
+      document.getElementById('u-name').value='';
+      document.getElementById('u-user').value='';
+      document.getElementById('u-phone').value='';
+      document.getElementById('u-code').value='';
+      document.getElementById('u-pass').value='';
+      document.getElementById('u-face').value='';
+      document.getElementById('u-btn-scan').innerHTML='<i class="fas fa-camera"></i>';
+      document.getElementById('u-btn-scan').style.borderColor='';
+      loadUsers(); // We need to implement this or refresh APP_USERS
+    } else {
+      alert('Error: '+res.message);
+    }
+  });
+}
+
+function loadUsers(){
+  fetch(API+'/users').then(r=>r.json()).then(data=>{
+    APP_USERS = data.map(u => ({...u, id: u.id, name: u.name, contact: u.phone, role: u.role}));
+    renderUserSwitch(); renderUsersPanel(); applyRoleAccess();
+  });
 }
 
 function removeAppUser(id){
@@ -737,7 +811,26 @@ async function enrollFace(e) {
   }
 }
 
-function sv_cust(){const id=document.getElementById('c-id').value,n=document.getElementById('c-n').value.trim(),p=document.getElementById('c-p').value.trim(),a=document.getElementById('c-a').value.trim(),e=document.getElementById('c-e').value.trim(),f=document.getElementById('c-face').value;if(!n){alert('Enter Customer Name');return;}const d=id?CUSTOMERS.find(x=>x.id==id):{};fetch(API+'/customers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id||null,name:n,phone:p,address:a,email:e,visits:d.visits||1,total:d.total_spend||0,face_vector:f})}).then(()=>{rMasters();document.getElementById('cust-mod').style.display='none';});}
+function sv_cust(){
+  const id=document.getElementById('c-id').value,
+        t=document.getElementById('c-title').value,
+        n=document.getElementById('c-n').value.trim(),
+        p=document.getElementById('c-p').value.trim(),
+        a=document.getElementById('c-a').value.trim(),
+        e=document.getElementById('c-e').value.trim(),
+        f=document.getElementById('c-face').value;
+        
+  if(!n){alert('Enter Customer Name');return;}
+  
+  fetch(API+'/customers',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({id:id||null, title:t, name:n, phone:p, address:a, email:e, face_vector:f})
+  }).then(()=>{
+    rMasters();
+    document.getElementById('cust-mod').style.display='none';
+  });
+}
 function dcust(id){if(!confirm('Delete this customer?'))return;fetch(API+'/customers/'+id,{method:'DELETE'}).then(()=>rMasters());}
 
 function asup(){document.getElementById('sup-mod').style.display='flex';document.getElementById('sup-title').textContent='Add Supplier';document.getElementById('s-id').value='';document.getElementById('s-n').value='';document.getElementById('s-p').value='';document.getElementById('s-g').value='';document.getElementById('s-st').value='Active';document.getElementById('s-n').focus();}
@@ -1256,13 +1349,6 @@ window.onload = () => {
     });
   }
 
-  if(window.faceapi && faceapi.nets) {
-      Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri(STATIC_BASE + '/models'),
-        faceapi.nets.faceLandmark68Net.loadFromUri(STATIC_BASE + '/models'),
-        faceapi.nets.faceRecognitionNet.loadFromUri(STATIC_BASE + '/models')
-      ]).then(() => console.log('Face API AI models loaded!')).catch(e=>console.log('Model err:',e));
-  }
   if(typeof rMasters === 'function') rMasters();
   if(typeof rPurchases === 'function') rPurchases();
   fetch(API+'/medicines').then(r=>r.json()).then(ms=>{

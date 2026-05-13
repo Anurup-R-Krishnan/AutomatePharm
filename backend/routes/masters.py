@@ -125,6 +125,7 @@ def get_customers():
             {
                 "id": row.customer_id,
                 "name": row.customer_name,
+                "title": row.title or "",
                 "phone": row.phone or "",
                 "visits": SalesBill.query.filter_by(customer_id=row.customer_id, is_cancelled=False).count(),
                 "total_spend": float(
@@ -135,6 +136,7 @@ def get_customers():
                 "address": row.address or "",
                 "email": "",
                 "balance": float(row.outstanding_balance or 0),
+                "face_vector": json.dumps(row.face_embedding) if row.face_embedding else None,
             }
             for row in rows
         ]
@@ -157,11 +159,31 @@ def add_customer():
             db.session.add(customer)
 
         customer.customer_name = data["name"]
+        customer.title = data.get("title", "")
         customer.phone = data["phone"]
         customer.address = data.get("address", "")
         customer.is_active = True
         if "balance" in data:
             customer.outstanding_balance = float(data.get("balance", 0) or 0)
+        if "face_vector" in data and data["face_vector"]:
+            try:
+                # the frontend might send it as a string or a list
+                vector_data = data["face_vector"]
+                if isinstance(vector_data, str):
+                    customer.face_embedding = json.loads(vector_data)
+                else:
+                    customer.face_embedding = vector_data
+                print(f"DEBUG: Saved face embedding for customer {customer.customer_name}. Type: {type(customer.face_embedding)}")
+                with open("face_debug.txt", "a") as f:
+                    f.write(f"SAVED FACE: {customer.customer_name}, Vector Len: {len(customer.face_embedding)}\n")
+            except Exception as e:
+                print(f"DEBUG ERROR: Failed to parse face_vector: {e}")
+                with open("face_debug.txt", "a") as f:
+                    f.write(f"ERROR: {str(e)}\n")
+                pass
+        else:
+             with open("face_debug.txt", "a") as f:
+                f.write(f"NO FACE DATA in request for {customer.customer_name}. Keys: {list(data.keys())}\n")
 
         db.session.commit()
         return jsonify({"status": "success"})
