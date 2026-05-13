@@ -1468,7 +1468,7 @@ function am_sv(){
     document.getElementById('man-mod').style.display='none';
     alert('Medicine details saved successfully!');
   })
-  .catch(err=>alert('Save Failed: '+(err.message||'Server error')))
+  .catch(err=>alert('Save Failed: '+(err.message||err.error||((err.details&&err.details.join)?err.details.join(', '):err.details)||'Server error')))
   .finally(()=>{btn.disabled=false;btn.textContent=ot;});
 }
 function initNav(){
@@ -1553,7 +1553,7 @@ function saveShelf(){
     document.getElementById('shelf-mod').style.display='none';
     loadShelves();
     loadInventory();
-  }).catch(err=>alert('Save Failed: '+(err.message||'Server error')));
+  }).catch(err=>alert('Save Failed: '+(err.message||err.error||((err.details&&err.details.join)?err.details.join(', '):err.details)||'Server error')));
 }
 function dshelf(id){
   if(!confirm('Delete this shelf location? Medicines assigned to it will become unassigned.'))return;
