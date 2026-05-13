@@ -10,6 +10,7 @@ from .communications import communications_bp
 from .auth import auth_bp
 from .finance import finance_bp
 from .analytics import analytics_bp
+from .wanted_list import wanted_list_bp
 
 
 def register_blueprints(app: Flask) -> None:
@@ -23,3 +24,4 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(sms_bp)
     app.register_blueprint(finance_bp)
     app.register_blueprint(analytics_bp)
+    app.register_blueprint(wanted_list_bp)
