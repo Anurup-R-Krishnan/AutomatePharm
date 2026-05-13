@@ -186,6 +186,292 @@ def test_bill_lifecycle(client):
     assert get_json(bill_delete)["status"] == "success"
 
 
+def test_billing_mockup_backends(client):
+    medicine_id = unique_id("m", 9)
+    medicine_name = f"Cancel Medicine {medicine_id[-4:]}"
+
+    med_create = client.post(
+        "/api/medicines",
+        json={
+            "id": medicine_id,
+            "n": medicine_name,
+            "g": "Paracetamol",
+            "c": "Tablet",
+            "p": 55,
+            "s": 40,
+            "batch": "B220",
+            "expiry": "2027-12-31",
+            "p_rate": 33,
+            "p_packing": "1x10",
+            "s_packing": "1x10",
+            "p_gst": 5,
+            "s_gst": 5,
+            "disc": 0,
+            "offer": "",
+            "reorder": 10,
+            "max_qty": 200,
+            "shelf_id": "MAIN",
+        },
+    )
+    assert med_create.status_code == 200
+
+    bill_create = client.post(
+        "/api/bills",
+        json={
+            "cust": "Cancel Flow Customer",
+            "phone": "9000000010",
+            "pay": "cash",
+            "sub": 110,
+            "disc": 0,
+            "tax": 5.5,
+            "total": 115.5,
+            "doctor": "Self",
+            "items": [{"id": medicine_id, "n": medicine_name, "p": 55, "qty": 2}],
+        },
+    )
+    assert bill_create.status_code == 200
+    bill_id = get_json(bill_create)["id"]
+
+    debit_note = client.post(
+        "/api/billing/vouchers",
+        json={
+            "type": "debit_note",
+            "voucher_no": unique_id("DN-", 6),
+            "voucher_date": "2026-05-12",
+            "customer_code": "1",
+            "amount": 150.75,
+            "remarks": "Damage adjustment",
+        },
+    )
+    assert debit_note.status_code == 200
+    debit_note_body = get_json(debit_note)
+    assert debit_note_body["status"] == "success"
+    assert debit_note_body["voucher"]["type"] == "debit_note"
+
+    receipt_credit = client.post(
+        "/api/billing/vouchers",
+        json={
+            "type": "sales_receipt_credit",
+            "voucher_no": unique_id("RC-", 6),
+            "voucher_date": "2026-05-12",
+            "account_date": "2026-05-12",
+            "reference_no": "REF-01",
+            "linked_bill_id": bill_id,
+            "account_name": "Customer Receipt",
+            "party_name": "Cancel Flow Customer",
+            "payment_type": "cash",
+            "amount": 115.5,
+            "remarks": "Receipt against bill",
+        },
+    )
+    assert receipt_credit.status_code == 200
+    receipt_credit_body = get_json(receipt_credit)
+    assert receipt_credit_body["voucher"]["type"] == "sales_receipt_credit"
+
+    voucher_list = client.get("/api/billing/vouchers?type=debit_note")
+    assert voucher_list.status_code == 200
+    assert isinstance(get_json(voucher_list), list)
+
+    cancel_preview = client.get(f"/api/bills/{bill_id}/cancel-preview")
+    assert cancel_preview.status_code == 200
+    cancel_preview_body = get_json(cancel_preview)
+    assert cancel_preview_body["id"] == bill_id
+    assert isinstance(cancel_preview_body["items"], list)
+    assert cancel_preview_body["items"][0]["item_code"] == medicine_id
+
+    cancel_bill = client.post(
+        f"/api/bills/{bill_id}/cancel",
+        json={"reason": "Customer requested void"},
+    )
+    assert cancel_bill.status_code == 200
+    cancel_bill_body = get_json(cancel_bill)
+    assert cancel_bill_body["status"] == "success"
+    assert cancel_bill_body["id"] == bill_id
+
+
+def test_customer_family_account_flow(client):
+    family_head_name = f"Family Head {unique_id('', 6)}"
+    family_member_name = f"Family Member {unique_id('', 6)}"
+
+    head_create = client.post(
+        "/api/customers",
+        json={
+            "name": family_head_name,
+            "phone": "9000000101",
+            "address": "Main Home",
+        },
+    )
+    assert head_create.status_code == 200
+
+    member_create = client.post(
+        "/api/customers",
+        json={
+            "name": family_member_name,
+            "phone": "9000000102",
+            "address": "Main Home",
+        },
+    )
+    assert member_create.status_code == 200
+
+    customer_list = get_json(client.get("/api/customers"))
+    head = find_item(customer_list, "name", family_head_name)
+    member = find_item(customer_list, "name", family_member_name)
+    assert head is not None
+    assert member is not None
+
+    link_member = client.post(
+        "/api/customers",
+        json={
+            "id": member["id"],
+            "name": family_member_name,
+            "phone": "9000000102",
+            "address": "Main Home",
+            "family_head_id": head["id"],
+            "family_relation": "Child",
+        },
+    )
+    assert link_member.status_code == 200
+
+    customer_list = get_json(client.get("/api/customers"))
+    head = find_item(customer_list, "name", family_head_name)
+    member = find_item(customer_list, "name", family_member_name)
+    assert head["family_head_id"] == head["id"]
+    assert member["family_head_id"] == head["id"]
+    assert head["family_member_count"] == 2
+    assert member["family_member_count"] == 2
+
+    medicine_id = unique_id("m", 9)
+    medicine_name = f"Family Medicine {medicine_id[-4:]}"
+
+    med_create = client.post(
+        "/api/medicines",
+        json={
+            "id": medicine_id,
+            "n": medicine_name,
+            "g": "Paracetamol",
+            "c": "Tablet",
+            "p": 50,
+            "s": 40,
+            "batch": "FAM100",
+            "expiry": "2027-12-31",
+            "p_rate": 30,
+            "p_packing": "1x10",
+            "s_packing": "1x10",
+            "p_gst": 5,
+            "s_gst": 5,
+            "disc": 0,
+            "offer": "",
+            "reorder": 10,
+            "max_qty": 200,
+            "shelf_id": "MAIN",
+        },
+    )
+    assert med_create.status_code == 200
+
+    bill_create = client.post(
+        "/api/bills",
+        json={
+            "cust": family_member_name,
+            "phone": "9000000102",
+            "pay": "cash",
+            "sub": 100,
+            "disc": 0,
+            "tax": 0,
+            "total": 100,
+            "doctor": "Self",
+            "items": [{"id": medicine_id, "n": medicine_name, "p": 50, "qty": 2}],
+        },
+    )
+    assert bill_create.status_code == 200
+    bill_id = get_json(bill_create)["id"]
+
+    payment = client.post(
+        f"/api/customers/{head['id']}/payment",
+        json={"amount": 30, "description": "Family payment"},
+    )
+    assert payment.status_code == 200
+
+    family_ledger = client.get(f"/api/customers/{head['id']}/ledger")
+    assert family_ledger.status_code == 200
+    ledger_rows = get_json(family_ledger)
+    assert len(ledger_rows) >= 2
+    assert any(row["ref_id"] == bill_id for row in ledger_rows)
+    assert any("Family payment" in row["description"] for row in ledger_rows)
+    assert ledger_rows[-1]["balance"] == 70.0
+
+    family_summary = client.get(f"/api/customers/{head['id']}/family")
+    assert family_summary.status_code == 200
+    family_summary_body = get_json(family_summary)
+    assert family_summary_body["family_member_count"] == 2
+    assert family_summary_body["summary"]["balance"] == 70.0
+
+
+def test_finance_accounting_apis(client):
+    supplier_name = f"Finance Supplier {unique_id('', 6)}"
+    purchase_response = client.post(
+        "/api/purchases",
+        json={
+            "supplier": supplier_name,
+            "amount": 480.0,
+            "date": "13/05/2026",
+            "items": "Finance Item",
+            "batch": "FIN100",
+            "expiry": "2027-12-31",
+        },
+    )
+    assert purchase_response.status_code == 200
+
+    supplier_list = get_json(client.get("/api/suppliers"))
+    supplier = find_item(supplier_list, "name", supplier_name)
+    assert supplier is not None
+
+    expense_response = client.post(
+        "/api/finance/expenses",
+        json={
+            "expense_date": "2026-05-13",
+            "category": "Rent",
+            "amount": 2500.0,
+            "description": "Monthly shop rent",
+            "voucher_no": "EXP-001",
+            "is_gst_applicable": False,
+        },
+    )
+    assert expense_response.status_code == 200
+    expense_body = get_json(expense_response)
+    assert expense_body["status"] == "success"
+
+    summary = get_json(client.get("/api/finance/summary?start_date=2026-05-01&end_date=2026-05-31"))
+    assert "sales_total" in summary
+    assert "expense_total" in summary
+    assert "gross_profit" in summary
+    assert "net_profit" in summary
+    assert "daily_sales" in summary
+
+    daily_sales = get_json(client.get("/api/finance/daily-sales?start_date=2026-05-01&end_date=2026-05-31"))
+    assert isinstance(daily_sales, list)
+
+    profit_loss = get_json(client.get("/api/finance/profit-loss?start_date=2026-05-01&end_date=2026-05-31"))
+    assert "gross_profit" in profit_loss
+    assert "net_profit" in profit_loss
+
+    payables = get_json(client.get("/api/finance/supplier-payables?start_date=2026-05-01&end_date=2026-05-31"))
+    assert isinstance(payables, list)
+    assert any(row["supplier_name"] == supplier_name for row in payables)
+
+    payment_response = client.post(
+        "/api/finance/supplier-payments",
+        json={
+            "supplier_id": supplier["id"],
+            "amount": 50.0,
+            "payment_date": "2026-05-13",
+            "remarks": "Partial payment",
+        },
+    )
+    assert payment_response.status_code == 200
+    payment_body = get_json(payment_response)
+    assert payment_body["status"] == "success"
+
+
 def test_purchases_and_masters_smoke(client):
     supplier_name = f"Smoke Supplier {unique_id('', 6)}"
     customer_name = f"Smoke Customer {unique_id('', 6)}"

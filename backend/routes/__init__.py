@@ -9,6 +9,8 @@ from .purchases import purchases_bp
 from .communications import communications_bp
 from .auth import auth_bp
 from .face import face_bp
+from .finance import finance_bp
+from .analytics import analytics_bp
 
 
 def register_blueprints(app: Flask) -> None:
@@ -21,3 +23,5 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(communications_bp)
     app.register_blueprint(sms_bp)
     app.register_blueprint(face_bp)
+    app.register_blueprint(finance_bp)
+    app.register_blueprint(analytics_bp)

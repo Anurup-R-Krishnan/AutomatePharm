@@ -203,3 +203,32 @@ class ReceiptPayment(db.Model):
     __table_args__ = (
         db.CheckConstraint('amount > 0', name='receipt_amount_positive'),
     )
+
+
+class BillingVoucher(db.Model):
+    __tablename__ = 'billing_vouchers'
+
+    voucher_id = db.Column(db.Integer, primary_key=True)
+    voucher_type = db.Column(db.String(30), nullable=False)
+    voucher_no = db.Column(db.String(30), nullable=False)
+    voucher_date = db.Column(db.Date, nullable=False)
+    account_date = db.Column(db.Date)
+    reference_no = db.Column(db.String(50))
+    reference_date = db.Column(db.Date)
+    customer_code = db.Column(db.String(50))
+    account_code = db.Column(db.String(50))
+    account_name = db.Column(db.String(150))
+    party_name = db.Column(db.String(150))
+    payment_type = db.Column(db.String(50))
+    bank_code = db.Column(db.String(50))
+    amount = db.Column(db.Numeric(12, 2), nullable=False)
+    remarks = db.Column(db.Text)
+    linked_bill_id = db.Column(db.Integer, db.ForeignKey('sales_bills.bill_id'))
+    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.user_id'), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('voucher_type', 'voucher_no', name='billing_voucher_type_no_unique'),
+        db.CheckConstraint('amount >= 0', name='billing_voucher_amount_non_negative'),
+    )
