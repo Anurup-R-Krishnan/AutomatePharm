@@ -1611,6 +1611,22 @@ function us(id){const i=MEDS.find(x=>x.id==id);if(!i)return;let nv=prompt(`Updat
 
 let allBills=[];
 let editingBillId='';
+window.sendFreeWa = function(id) {
+    const b = allBills.find(x => String(x.id) === String(id));
+    if (!b) return;
+    if (!b.phone) { alert("No phone number for this customer."); return; }
+    let itemsStr = "";
+    if (b.items) {
+        b.items.forEach(i => {
+            itemsStr += `- ${i.n} (Qty:${i.qty}) : Rs.${(i.p * i.qty).toFixed(2)}\n`;
+        });
+    }
+    const msg = `Hello ${b.cust},\n\nYour bill for Rs. ${b.total.toFixed(2)} is ready.\n\n*Purchases:*\n${itemsStr}\nSubtotal: Rs. ${(b.total - b.tax + b.disc).toFixed(2)}\nDiscount: Rs. ${b.disc.toFixed(2)}\nGST: Rs. ${b.tax.toFixed(2)}\n*Total: Rs. ${b.total.toFixed(2)}*\n\nThank you for visiting Selvam Medicals!`;
+    let phone = b.phone.replace(/\D/g, '');
+    if (phone.length === 10) phone = "91" + phone;
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
+};
+
 function renderUtils(){const tbody=document.getElementById('util-bills-body');if(!tbody)return;if(!allBills.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--dim)">No bills generated yet.</td></tr>';return;}tbody.innerHTML='';allBills.slice().reverse().forEach((b)=>{const itemsTxt=(b.items&&b.items.length)?b.items.map(i=>i.n).join(', '):'—';const rxf=b.prescription?`<button class="btn btn-out" style="padding:4px 10px;font-size:10px;border-color:var(--acc);color:var(--acc);background:rgba(245,166,35,0.05)" onclick="v_rx('${b.id}')"><i class="fas fa-eye"></i> View Prescription</button>`:'<span style="color:var(--dim);font-size:11px;opacity:0.5">—</span>';tbody.innerHTML+=`<tr>
 <td style="vertical-align:middle"><span class="bx bo">#${b.id}</span></td>
 <td style="vertical-align:middle;font-size:12px">${b.date}</td>
@@ -1620,7 +1636,7 @@ function renderUtils(){const tbody=document.getElementById('util-bills-body');if
 <td style="vertical-align:middle"><span style="text-transform:uppercase;font-size:10px;background:var(--brd);padding:2px 6px;border-radius:4px">${b.pay}</span></td>
 <td style="vertical-align:middle;color:var(--mt);font-size:11.5px">${b.doctor||'Self'}</td>
 <td style="vertical-align:middle;color:var(--mt);font-size:11.5px;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${itemsTxt}">${itemsTxt}</td>
-<td style="vertical-align:middle;text-align:right;white-space:nowrap"><button class="btn btn-out" style="padding:4px 8px;font-size:10px;margin-right:6px" onclick="loadBillForEdit('${b.id}')"><i class="fas fa-pen"></i></button><button class="btn btn-r" style="padding:4px 8px;font-size:10px" onclick="deleteBill('${b.id}')"><i class="fas fa-trash"></i></button></td>
+<td style="vertical-align:middle;text-align:right;white-space:nowrap"><button class="btn btn-out" style="padding:4px 8px;font-size:10px;margin-right:6px;border-color:#25D366" onclick="sendFreeWa('${b.id}')" title="Free WhatsApp"><i class="fab fa-whatsapp" style="color:#25D366;font-size:12px"></i></button><button class="btn btn-out" style="padding:4px 8px;font-size:10px;margin-right:6px" onclick="loadBillForEdit('${b.id}')"><i class="fas fa-pen"></i></button><button class="btn btn-r" style="padding:4px 8px;font-size:10px" onclick="deleteBill('${b.id}')"><i class="fas fa-trash"></i></button></td>
 </tr>`;});}
 function v_rx(id){const b=allBills.find(x=>x.id==id);if(!b||!b.prescription)return;const isPdf=b.prescription.startsWith('data:application/pdf');const w=window.open('','_blank','width=1000,height=920');const content=isPdf?`<iframe src="${b.prescription}" style="width:95%;height:82vh;border-radius:12px;border:1px solid #334155;background:#1e293b;box-shadow:0 20px 50px rgba(0,0,0,0.5)"></iframe>`:`<video style="display:none"></video><img src="${b.prescription}" style="max-width:90%;max-height:80%;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,0.5);border:1px solid #334155;"/><p style="margin-top:24px;font-size:14px;color:#94a3b8;letter-spacing:0.5px">Customer: <b style="color:#f1f5f9">${b.cust}</b></p>`;w.document.write(`<html><head><title>Prescription: ${b.cust}</title><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet"/><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/><style>body{margin:0;background:#0f172a;color:#fff;font-family:'Inter',sans-serif;display:flex;flex-direction:column;align-items:center;height:100vh;overflow:hidden}.hdr{width:100%;padding:20px;background:#1e293b;border-bottom:1px solid #334155;display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:30px}.hdr i{color:#f5a623;font-size:20px}.hdr h2{margin:0;font-size:18px;font-weight:600;letter-spacing:-0.5px}</style></head><body><div class="hdr"><i class="fas fa-file-prescription"></i><h2>Prescription for Bill #${b.id}</h2></div>${content}</body></html>`);}
 function rKpis(sD){
@@ -1819,9 +1835,13 @@ function pb2(){
     renderHeldBills();
     generateWantedList();
     // Print receipt
+    const itemsStrForWa = savedItems.map(i=>`- ${i.n} (Qty:${i.qty}) : Rs.${(i.p*i.qty).toFixed(2)}`).join('\\n');
+    const waMsg = `Hello ${cnInp},\\n\\nYour bill for Rs. ${tot.toFixed(2)} is ready.\\n\\n*Purchases:*\\n${itemsStrForWa}\\nSubtotal: Rs. ${sub.toFixed(2)}\\nDiscount: Rs. ${(da+modeDisc).toFixed(2)}\\nGST: Rs. ${tax.toFixed(2)}\\n*Total: Rs. ${tot.toFixed(2)}*\\n\\nThank you for visiting Selvam Medicals!`;
+    const waBtn = cpInp ? `<button class="no-print" style="margin-top:20px;width:100%;padding:10px;background:#25D366;color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:bold;font-size:14px" onclick="let phone='${cpInp.replace(/\\D/g,'')}';if(phone.length===10)phone='91'+phone;window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(\`${waMsg}\`), '_blank');">Send WhatsApp Receipt</button>` : '';
+
     const rows=savedItems.map(i=>'<tr><td>'+i.n+'</td><td style="text-align:center">'+i.qty+'</td><td style="text-align:right">₹'+i.p+'</td><td style="text-align:right">₹'+(i.p*i.qty).toFixed(2)+'</td></tr>').join('');
     const w=window.open('','_blank','width=400,height=580');
-    w.document.write('<!DOCTYPE html><html><head><title>Bill</title><style>body{font-family:Courier New,monospace;padding:18px;font-size:12px}h2{text-align:center;font-size:17px;margin:0}p{margin:2px 0;text-align:center;font-size:10px;color:#555}hr{border:none;border-top:1px dashed #999;margin:8px 0}table{width:100%;border-collapse:collapse}th{border-bottom:1px solid #000;padding:3px 0;text-align:left;font-size:11px}td{padding:3px 0;font-size:11px}.r{text-align:right}.tot{font-weight:700;border-top:1px dashed #999}</style></head><body><h2>SELVAM MEDICALS</h2><p>Pharmacy & Health Store | Ph: 044-XXXXXXXX</p><hr/><p style="text-align:left">Bill: #'+bId+' | Date: '+ds+'</p><p style="text-align:left;margin-bottom:6px;">'+custType.toUpperCase()+': '+cnInp+' | Phone: '+cpInp+' | Ref: '+(cdrInp||'-')+'</p><p style="text-align:left">Pay: '+pm.toUpperCase()+' | Type: '+billType.toUpperCase()+'</p><hr/><table><thead><tr><th>Medicine</th><th style="text-align:center">Qty</th><th class="r">MRP</th><th class="r">Amt</th></tr></thead><tbody>'+rows+'</tbody></table><hr/><table><tr><td>Subtotal</td><td class="r">₹'+sub.toFixed(2)+'</td></tr><tr><td>Discount</td><td class="r">-₹'+(da+modeDisc).toFixed(2)+'</td></tr><tr><td>GST 5%</td><td class="r">₹'+tax.toFixed(2)+'</td></tr><tr class="tot"><td>TOTAL</td><td class="r">₹'+tot.toFixed(2)+'</td></tr></table><p style="margin-top:12px">Thank you! Get well soon 💊</p><scr'+'ipt>window.print();<\/scr'+'ipt></body></html>');
+    w.document.write('<!DOCTYPE html><html><head><title>Bill</title><style>body{font-family:Courier New,monospace;padding:18px;font-size:12px}h2{text-align:center;font-size:17px;margin:0}p{margin:2px 0;text-align:center;font-size:10px;color:#555}hr{border:none;border-top:1px dashed #999;margin:8px 0}table{width:100%;border-collapse:collapse}th{border-bottom:1px solid #000;padding:3px 0;text-align:left;font-size:11px}td{padding:3px 0;font-size:11px}.r{text-align:right}.tot{font-weight:700;border-top:1px dashed #999}@media print{.no-print{display:none;}}</style></head><body><h2>SELVAM MEDICALS</h2><p>Pharmacy & Health Store | Ph: 044-XXXXXXXX</p><hr/><p style="text-align:left">Bill: #'+bId+' | Date: '+ds+'</p><p style="text-align:left;margin-bottom:6px;">'+custType.toUpperCase()+': '+cnInp+' | Phone: '+cpInp+' | Ref: '+(cdrInp||'-')+'</p><p style="text-align:left">Pay: '+pm.toUpperCase()+' | Type: '+billType.toUpperCase()+'</p><hr/><table><thead><tr><th>Medicine</th><th style="text-align:center">Qty</th><th class="r">MRP</th><th class="r">Amt</th></tr></thead><tbody>'+rows+'</tbody></table><hr/><table><tr><td>Subtotal</td><td class="r">₹'+sub.toFixed(2)+'</td></tr><tr><td>Discount</td><td class="r">-₹'+(da+modeDisc).toFixed(2)+'</td></tr><tr><td>GST 5%</td><td class="r">₹'+tax.toFixed(2)+'</td></tr><tr class="tot"><td>TOTAL</td><td class="r">₹'+tot.toFixed(2)+'</td></tr></table><p style="margin-top:12px">Thank you! Get well soon 💊</p>'+waBtn+'<scr'+'ipt>window.print();<\/scr'+'ipt></body></html>');
     w.document.close();
   }).catch(e=>alert('Bill Save Error: '+e.message));
 }
