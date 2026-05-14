@@ -31,6 +31,106 @@ def required_fields(payload: dict, fields: list[str]) -> list[str]:
     return missing
 
 
+@masters_bp.route("/api/customers/face-match", methods=["POST"])
+def face_match():
+    from ..models.ai import AiFaceLog
+    data = request.get_json(silent=True) or {}
+    face_vector = data.get("face_vector")
+
+    if not face_vector or not isinstance(face_vector, list) or len(face_vector) != 128:
+        return json_error("Invalid face_vector. Expected 128-dim list of floats.")
+
+    # Log attempt
+    log_entry = AiFaceLog(
+        camera_id="F4-counter",
+        confidence_score=0.0,
+        is_fraud_alert=False,
+        action_triggered="recognition_attempt"
+    )
+    db.session.add(log_entry)
+
+    customers = Customer.query.filter(Customer.face_embedding.isnot(None), Customer.is_active.is_(True)).all()
+
+    best_match = None
+    min_dist = float('inf')
+    threshold = 0.45
+
+    for c in customers:
+        try:
+            stored_vector = c.face_embedding
+            if not stored_vector or len(stored_vector) != 128:
+                continue
+
+            # Euclidean distance
+            dist = sum((a - b) ** 2 for a, b in zip(face_vector, stored_vector)) ** 0.5
+
+            if dist < min_dist:
+                min_dist = dist
+                best_match = c
+        except Exception as e:
+            print(f"Distance calculation error for customer {c.customer_id}: {e}")
+            continue
+
+    if best_match and min_dist < threshold:
+        # Check WantedList (Fraud/Wanted Check)
+        from ..models.ai import WantedList
+        wanted_entry = WantedList.query.filter_by(customer_id=best_match.customer_id).first()
+        is_fraud = wanted_entry is not None
+        wanted_reason = wanted_entry.reason or "No reason provided" if is_fraud else ""
+
+        log_entry.customer_id = best_match.customer_id
+        log_entry.confidence_score = round(1.0 - min_dist, 4)
+        log_entry.is_fraud_alert = is_fraud
+        log_entry.action_triggered = "match_found"
+        db.session.commit()
+
+        # Get last purchase
+        last_bill = SalesBill.query.filter(SalesBill.customer_id == best_match.customer_id, SalesBill.is_cancelled.is_(False)).order_by(SalesBill.bill_date.desc()).first()
+        last_purchase = last_bill.bill_date.strftime("%d/%m/%Y") if last_bill else "No previous purchase"
+
+        return jsonify({
+            "status": "match",
+            "customer": {
+                "id": best_match.customer_id,
+                "name": best_match.customer_name,
+                "title": best_match.title or "",
+                "phone": best_match.phone or "",
+                "last_purchase": last_purchase,
+                "confidence": round(1.0 - min_dist, 4)
+            },
+            "wanted": is_fraud,
+            "wanted_reason": wanted_reason
+        })
+
+    db.session.commit()
+    return jsonify({
+        "status": "no_match",
+        "message": "Unknown visitor"
+    })
+
+
+@masters_bp.route("/api/customers/<int:id>/face", methods=["PATCH"])
+def update_customer_face(id):
+    customer = Customer.query.get(id)
+    if not customer:
+        return json_error("Customer not found", 404)
+    
+    data = request.get_json(silent=True) or {}
+    face_vector = data.get("face_vector")
+    
+    if not face_vector or not isinstance(face_vector, list) or len(face_vector) != 128:
+        return json_error("Invalid face_vector. Expected 128-dim list of floats.")
+    
+    try:
+        customer.face_embedding = face_vector
+        customer.last_face_scan_at = datetime.utcnow()
+        db.session.commit()
+        return jsonify({"status": "success", "message": "Face registered successfully"})
+    except Exception as err:
+        db.session.rollback()
+        return json_error("Failed to update face embedding", 500, str(err))
+
+
 def _supplier_code(name: str) -> str:
     base = name.strip().upper().replace(" ", "_")[:20] or "SUP"
     exists = Supplier.query.filter_by(supplier_code=base).first()
@@ -185,7 +285,7 @@ def get_customers():
                 "total_spend": summary["total_spend"],
                 "address": row.address or "",
                 "email": "",
-                "face_vector": json.dumps(row.face_embedding.tolist()) if row.face_embedding is not None else "",
+                "face_vector": json.dumps(row.face_embedding) if row.face_embedding is not None else "",
                 "balance": summary["balance"],
                 "family_head_id": summary["family_head_id"],
                 "family_head_name": summary["family_head_name"],
@@ -397,11 +497,33 @@ def delete_supplier(id):
 
 @masters_bp.route("/api/customers/<id>", methods=["DELETE"])
 def delete_customer(id):
-    customer = Customer.query.get(id)
-    if customer:
-        db.session.delete(customer)
-        db.session.commit()
-    return jsonify({"status": "success"})
+    try:
+        customer = Customer.query.get(id)
+        if customer:
+            # Import models locally to avoid circular imports if any
+            from ..models.ai import AiFaceLog, WantedList, CustomerPurchasePattern
+            from ..models.sales import SalesBill, SalesReturn, ReceiptPayment, PrescriptionRegister
+            
+            # 1. Handle self-referencing family accounts
+            Customer.query.filter_by(family_head_id=id).update({"family_head_id": None})
+            
+            # 2. Set customer_id to NULL in history/logs
+            AiFaceLog.query.filter_by(customer_id=id).update({"customer_id": None})
+            SalesBill.query.filter_by(customer_id=id).update({"customer_id": None})
+            SalesReturn.query.filter_by(customer_id=id).update({"customer_id": None})
+            ReceiptPayment.query.filter_by(customer_id=id).update({"customer_id": None})
+            PrescriptionRegister.query.filter_by(customer_id=id).update({"customer_id": None})
+            
+            # 3. Delete ephemeral data
+            CustomerPurchasePattern.query.filter_by(customer_id=id).delete()
+            WantedList.query.filter_by(customer_id=id).delete()
+            
+            db.session.delete(customer)
+            db.session.commit()
+        return jsonify({"status": "success"})
+    except Exception as err:
+        db.session.rollback()
+        return json_error("Failed to delete customer. They may have critical billing history.", 500, str(err))
 
 
 @masters_bp.route("/api/customers/<id>/ledger", methods=["GET"])

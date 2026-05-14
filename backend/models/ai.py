@@ -88,6 +88,7 @@ class WantedList(db.Model):
 
     w_date = db.Column(db.Date, nullable=False)
     status_id = db.Column(db.Integer, db.ForeignKey('wanted_statuses.wanted_status_id'), nullable=False)
+    reason = db.Column(db.Text) # Fraud/Alert reason
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 

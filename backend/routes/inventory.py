@@ -216,7 +216,7 @@ def update_med():
             db.session.flush()
         cat_id = category.category_id
 
-        item_id = data.get("id") or ("m_" + str(int(datetime.utcnow().timestamp() * 1000)))
+        item_id = data.get("id") or ("m" + hex(int(datetime.utcnow().timestamp()))[2:])
         item = Item.query.get(item_id)
 
         if not item:
@@ -331,14 +331,35 @@ def delete_med(id):
     try:
         item = Item.query.get(id)
         if item:
-            # delete child batches first
+            # 1. Delete associated stock data
             StockBatch.query.filter_by(item_id=id).delete()
+            ExpiryAlert.query.filter_by(item_id=id).delete()
+            from ..models.core import SupplierItem
+            SupplierItem.query.filter_by(item_id=id).delete()
+            
+            # 2. Handle history/transactions (set NULL to preserve financial records)
+            from ..models.sales import SalesBillItem, SalesReturnItem, PrescriptionRegister
+            from ..models.purchase import PurchaseInvoiceItem, PurchaseReturnItem
+            from ..models.inventory import StockLedger
+            from ..models.ai import WantedList, CustomerPurchasePattern
+
+            SalesBillItem.query.filter_by(item_id=id).update({"item_id": None})
+            SalesReturnItem.query.filter_by(item_id=id).update({"item_id": None})
+            PurchaseInvoiceItem.query.filter_by(item_id=id).update({"item_id": None})
+            PurchaseReturnItem.query.filter_by(item_id=id).update({"item_id": None})
+            StockLedger.query.filter_by(item_id=id).update({"item_id": None})
+            PrescriptionRegister.query.filter_by(item_id=id).update({"item_id": None})
+            
+            # 3. Delete ephemeral data
+            WantedList.query.filter_by(item_id=id).delete()
+            CustomerPurchasePattern.query.filter_by(combination_id=item.combination_id).delete() if item.combination_id else None
+            
             db.session.delete(item)
             db.session.commit()
         return jsonify({"status": "success"})
     except Exception as err:
         db.session.rollback()
-        return _json_error("Failed to delete item", 500, str(err))
+        return _json_error("Failed to delete medicine. It may be linked to critical transaction records.", 500, str(err))
 
 
 

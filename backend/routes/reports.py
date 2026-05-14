@@ -1305,10 +1305,14 @@ def api_face_footfall():
     if not end_date:
         end_date = datetime.now().date()
         
-    # Get all logs in date range
-    logs = AiFaceLog.query.filter(
+    camera_filter = request.args.get("camera")
+    query = AiFaceLog.query.filter(
         db.func.date(AiFaceLog.detected_at).between(start_date, end_date)
-    ).all()
+    )
+    if camera_filter:
+        query = query.filter(AiFaceLog.camera_id == camera_filter)
+    
+    logs = query.all()
     
     total_walkins = len(logs)
     unique_customers = len(set(log.customer_id for log in logs if log.customer_id))

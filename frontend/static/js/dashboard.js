@@ -60,82 +60,200 @@ function speakGreeting(name, title) {
     window.speechSynthesis.speak(utterance);
 }
 
+let faceDetectionInterval = null;
+let modelsLoaded = false;
+
 function cancelFaceScan() {
     if(faceStream) {
         faceStream.getTracks().forEach(t => t.stop());
         faceStream = null;
     }
+    if(faceDetectionInterval) {
+        clearInterval(faceDetectionInterval);
+        faceDetectionInterval = null;
+    }
     document.getElementById('face-modal').style.display = 'none';
+    document.getElementById('face-action').style.display = 'none';
+    document.getElementById('face-fraud-alert').style.display = 'none';
+}
+
+function regNewFace() {
+    cancelFaceScan();
+    sw('masters');
+    setTimeout(() => {
+        stab(document.querySelector('.tab[onclick*="mt-cust"]'), 'mt-cust');
+        document.getElementById('cust-mod').style.display = 'flex';
+        document.getElementById('cust-title').textContent = 'Register New Customer';
+        document.getElementById('c-id').value = '';
+        document.getElementById('c-n').value = '';
+        document.getElementById('c-p').value = '';
+        document.getElementById('c-n').focus();
+    }, 100);
 }
 
 
+let selectedRegCustId = null;
+let currentFaceVector = null;
+
+function searchCustFace(q) {
+  const res = document.getElementById('face-search-results');
+  if(!q || q.length < 2) { res.innerHTML = ''; return; }
+  const matches = CUSTOMERS.filter(c => (c.name.toLowerCase().includes(q.toLowerCase()) || c.phone.includes(q)))
+    .slice(0, 5);
+  res.innerHTML = matches.map(c => `
+    <div onclick="selectCustForFace(${c.id}, '${c.name.replace(/'/g, "\\'")}')" style="padding:10px; cursor:pointer; border-bottom:1px solid rgba(255,255,255,0.05); font-size:12px; color:var(--tx)">
+      <i class="fas fa-user" style="color:var(--acc); margin-right:8px"></i> ${c.name} <span style="opacity:0.5; float:right">(${c.phone})</span>
+    </div>
+  `).join('');
+}
+
+function selectCustForFace(id, name) {
+  selectedRegCustId = id;
+  document.getElementById('face-search').value = name;
+  document.getElementById('face-search-results').innerHTML = '';
+  document.getElementById('btn-reg-face').style.display = 'block';
+}
+
+async function regFaceToCust() {
+  if(!selectedRegCustId || !currentFaceVector) return;
+  const btn = document.getElementById('btn-reg-face');
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> REGISTERING...';
+  try {
+    const response = await fetch(API + `/customers/${selectedRegCustId}/face`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ face_vector: currentFaceVector })
+    });
+    const result = await response.json();
+    if(result.status === 'success') {
+      const cIdx = CUSTOMERS.findIndex(x => x.id == selectedRegCustId);
+      if(cIdx !== -1) CUSTOMERS[cIdx].face_vector = JSON.stringify(currentFaceVector);
+      
+      document.getElementById('face-status').innerHTML = '<div style="color:#22c55e; font-weight:700; font-size:16px"><i class="fas fa-check-circle"></i> ENROLLED SUCCESSFULLY!</div>';
+      document.getElementById('face-action').style.display = 'none';
+      setTimeout(() => { triggerFaceScan(); }, 1500);
+    } else { alert('Error: ' + result.message); }
+  } catch (e) { console.error(e); alert('Failed to register face.'); }
+  btn.innerHTML = '<i class="fas fa-id-card"></i> REGISTER FACE TO SELECTED';
+}
+
 async function triggerFaceScan() {
-  if(!window.faceapi || !faceapi.nets.tinyFaceDetector.isLoaded) { alert('AI Models are still loading. Please try again in a few seconds.'); return; }
+  selectedRegCustId = null;
+  currentFaceVector = null;
+  const searchInp = document.getElementById('face-search');
+  if(searchInp) searchInp.value = '';
+  const regBtn = document.getElementById('btn-reg-face');
+  if(regBtn) regBtn.style.display = 'none';
+
   const modal = document.getElementById('face-modal');
   const vid = document.getElementById('face-vid');
+  const canvas = document.getElementById('face-canvas');
+  const status = document.getElementById('face-status');
+
   modal.style.display = 'flex';
-  document.getElementById('face-status').textContent = 'Scanning...';
-  document.getElementById('face-status').style.color = 'var(--tx)';
-  
+  status.textContent = 'Preparing system...';
+  status.style.color = 'var(--tx)';
+
+  // 1. Lazy load models
+  if(!modelsLoaded) {
+    status.textContent = 'Loading AI Models...';
+    try {
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri(STATIC_BASE + '/models'),
+        faceapi.nets.faceLandmark68Net.loadFromUri(STATIC_BASE + '/models'),
+        faceapi.nets.faceRecognitionNet.loadFromUri(STATIC_BASE + '/models')
+      ]);
+      modelsLoaded = true;
+      console.log('Face API AI models loaded!');
+    } catch (err) {
+      status.textContent = 'Model load failed: ' + err.message;
+      status.style.color = '#ef4444';
+      setTimeout(() => { modal.style.display = 'none'; }, 3000);
+      return;
+    }
+  }
+
   try {
-    faceStream = await navigator.mediaDevices.getUserMedia({video: {facingMode: 'user'}});
+    status.textContent = 'Accessing camera...';
+    faceStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 340, height: 340 } });
     vid.srcObject = faceStream;
     
-    setTimeout(async () => {
-      const det = await faceapi.detectSingleFace(vid, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-      if(!det) {
-         document.getElementById('face-status').textContent = 'No face detected.';
-         document.getElementById('face-status').style.color = '#ef4444';
-         setTimeout(() => { cancelFaceScan(); }, 1500);
-         return;
-      }
+    vid.onloadedmetadata = () => {
+      status.textContent = 'Scanning biometrics...';
       
-      const labeled = [];
-      CUSTOMERS.forEach(c => {
-         if(c.face_vector && c.face_vector.length > 50) {
-            try {
-               const arr = new Float32Array(JSON.parse(c.face_vector));
-               labeled.push(new faceapi.LabeledFaceDescriptors(c.name + '|' + c.phone + '|' + (c.title || ''), [arr]));
-            } catch(e){ console.error('Vector err:', e); }
-         }
-      });
-      
-      if(labeled.length === 0) {
-         document.getElementById('face-status').textContent = 'No enrolled faces found.';
-         document.getElementById('face-status').style.color = '#ef4444';
-         setTimeout(() => { cancelFaceScan(); }, 2000);
-         return;
-      }
-      
-      const faceMatcher = new faceapi.FaceMatcher(labeled, 0.55);
-      const bestMatch = faceMatcher.findBestMatch(det.descriptor);
-      
-      if(bestMatch.label === 'unknown') {
-         document.getElementById('face-status').textContent = 'Customer not recognized.';
-         document.getElementById('face-status').style.color = '#f5a623';
-         setTimeout(() => { cancelFaceScan(); }, 2000);
-      } else {
-         const parts = bestMatch.label.split('|');
-         const mName = parts[0];
-         const mPhone = parts[1];
-         const mTitle = parts[2] || '';
-         
-         document.getElementById('face-status').textContent = `Welcome ${mName}!`;
-         document.getElementById('face-status').style.color = '#22c55e';
-         
-         speakGreeting(mName, mTitle);
-         
-         setTimeout(() => {
-           cancelFaceScan();
-           document.getElementById('cn').value = mName;
-           document.getElementById('cp').value = mPhone;
-           document.getElementById('cn').dispatchEvent(new Event('input'));
-         }, 1500);
-      }
-    }, 1000);
+      // 2. Detection Loop
+      faceDetectionInterval = setInterval(async () => {
+        if (!faceStream) return;
+
+        const detections = await faceapi.detectSingleFace(vid, new faceapi.TinyFaceDetectorOptions())
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (detections) {
+          currentFaceVector = Array.from(detections.descriptor);
+          const dims = faceapi.matchDimensions(canvas, vid, true);
+          const resized = faceapi.resizeResults(detections, dims);
+          faceapi.draw.drawDetections(canvas, resized);
+
+          // 3. Matching logic (Server-side)
+          try {
+            const response = await fetch(API + '/customers/face-match', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ face_vector: Array.from(detections.descriptor) })
+            });
+            const result = await response.json();
+            
+            if (result.status === 'match') {
+              const c = result.customer;
+
+              // Fraud/Wanted Alert
+              const fraudAlert = document.getElementById('face-fraud-alert');
+              const fraudReason = document.getElementById('face-fraud-reason');
+              if (result.wanted) {
+                fraudReason.textContent = result.wanted_reason;
+                fraudAlert.style.display = 'block';
+              } else {
+                fraudAlert.style.display = 'none';
+              }
+
+              status.innerHTML = `
+                <div style="color:#22c55e; font-weight:700; margin-bottom:4px; font-size:16px">MATCH FOUND!</div>
+                <div style="font-size:14px; color:var(--tx)">${c.name}</div>
+                <div style="font-size:13px; color:var(--acc)">${c.phone}</div>
+                <div style="font-size:11px; opacity:0.7; margin-top:4px">Last: ${c.last_purchase}</div>
+              `;
+              document.getElementById('face-action').style.display = 'none';
+              
+              speakGreeting(c.name, c.title);
+              
+              clearInterval(faceDetectionInterval);
+              setTimeout(() => {
+                cancelFaceScan();
+                document.getElementById('cn').value = c.name;
+                document.getElementById('cp').value = c.phone;
+                document.getElementById('cn').dispatchEvent(new Event('input'));
+              }, 1500);
+            } else {
+              status.innerHTML = '<span style="color:#f5a623; font-weight:600">Unknown visitor</span>';
+              document.getElementById('face-action').style.display = 'block';
+            }
+          } catch (e) {
+            console.error('Match API Error:', e);
+          }
+        } else {
+          status.textContent = 'Please look at camera';
+          status.style.color = 'var(--tx)';
+        }
+      }, 200);
+    };
   } catch (err) {
-    document.getElementById('face-status').textContent = 'Camera error.';
-    setTimeout(() => { modal.style.display = 'none'; }, 2000);
+    status.textContent = 'Camera error: ' + err.message;
+    status.style.color = '#ef4444';
+    setTimeout(() => { cancelFaceScan(); }, 2000);
   }
 }
 // Clock
@@ -219,10 +337,28 @@ function applyRoleAccess(){
 
 async function enrollUserFace(e) {
   e.preventDefault();
-  if(!window.faceapi){ alert('AI Models are loading...'); return; }
+  
+  if(!modelsLoaded) {
+    const status = document.getElementById('face-status');
+    const modal = document.getElementById('face-modal');
+    modal.style.display = 'flex';
+    status.textContent = 'Loading AI Models...';
+    try {
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri(STATIC_BASE + '/models'),
+        faceapi.nets.faceLandmark68Net.loadFromUri(STATIC_BASE + '/models'),
+        faceapi.nets.faceRecognitionNet.loadFromUri(STATIC_BASE + '/models')
+      ]);
+      modelsLoaded = true;
+      modal.style.display = 'none';
+    } catch (err) {
+      alert('Model load failed: ' + err.message);
+      modal.style.display = 'none';
+      return;
+    }
+  }
+
   const btn = document.getElementById('u-btn-scan');
-  // We need a video element for preview. We'll use the customer one for now or add a hidden one.
-  // Actually let's use the face-modal video element.
   const modal = document.getElementById('face-modal');
   const vid = document.getElementById('face-vid');
   modal.style.display = 'flex';

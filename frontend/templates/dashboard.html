@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}"/>
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script defer src="{{ url_for('static', filename='face-api.min.js') }}"></script>
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 </head>
 <body>
 <!-- SIDEBAR -->
@@ -748,6 +748,8 @@
     <div style="font-size:15px;font-weight:600;margin-bottom:16px;color:#e8ecf4;display:flex;justify-content:space-between;align-items:center;"><span id="cust-title">Add Customer</span><i class="fas fa-xmark" style="cursor:pointer" onclick="document.getElementById('cust-mod').style.display='none'"></i></div>
     <input type="hidden" id="c-id"/><input type="hidden" id="c-face"/>
     <label>Customer Name</label><input type="text" id="c-n"/><label>Phone</label><input type="text" id="c-p"/><label>Address</label><input type="text" id="c-a"/><label>Email</label><input type="text" id="c-e"/>
+    <label>Family Head</label><select id="c-fh" style="width:100%;background:#252a40;border:1px solid var(--brd);border-radius:7px;padding:7px;color:var(--tx);font-family:inherit;margin-bottom:8px"></select>
+    <label>Relation</label><input type="text" id="c-fr" placeholder="e.g. Spouse, Child"/>
     <div style="text-align:center; margin-bottom: 8px;">
       <video id="c-vid" autoplay playsinline style="width:100%;height:150px;object-fit:cover;display:none;margin-bottom:8px;border-radius:8px;transform:scaleX(-1)"></video>
       <button class="btn btn-out" id="c-btn-scan" style="width:100%;padding:10px;justify-content:center;font-size:11.5px" onclick="enrollFace(event)"><i class="fas fa-camera"></i> Enroll Face Vector</button>
@@ -811,12 +813,24 @@
 <div id="face-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.9); z-index:9999; justify-content:center; align-items:center; backdrop-filter:blur(8px)">
   <div style="background:var(--card); border:1px solid var(--acc); padding:40px; border-radius:16px; text-align:center; width:480px; box-shadow:0 20px 60px rgba(0,0,0,0.6); position:relative;">
     <button onclick="cancelFaceScan()" style="position:absolute; top:15px; right:15px; background:none; border:none; color:var(--mt); cursor:pointer; font-size:18px;"><i class="fas fa-times"></i></button>
+    <div id="face-fraud-alert" style="display:none; background:#ef4444; color:#fff; padding:12px; border-radius:12px; margin-bottom:20px; font-size:13px; font-weight:800; text-transform:uppercase; box-shadow:0 0 30px rgba(239,68,68,0.5)">
+      <i class="fas fa-triangle-exclamation fa-beat"></i> WANTED: <span id="face-fraud-reason"></span>
+    </div>
     <h3 style="color:var(--acc); margin-bottom:25px; font-size:16px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase;"><i class="fas fa-shield-halved fa-beat" style="margin-right:8px"></i> Biometric Scan</h3>
     <div style="width:340px; height:340px; border:3px solid rgba(245,166,35,0.2); margin:0 auto 25px; border-radius:12px; position:relative; overflow:hidden; box-shadow: 0 0 30px rgba(245,166,35,0.1)">
        <video id="face-vid" autoplay playsinline style="width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0; z-index:1; transform: scaleX(-1);"></video>
+       <canvas id="face-canvas" style="width:100%; height:100%; position:absolute; top:0; left:0; z-index:2; transform: scaleX(-1);"></canvas>
        <div id="face-scanline" style="position:absolute; top:0; left:0; right:0; height:4px; background:linear-gradient(to right, transparent, var(--acc), transparent); box-shadow:0 0 20px var(--acc); animation: scanline 2s infinite alternate ease-in-out; z-index:5;"></div>
     </div>
     <p id="face-status" style="font-size:14px; color:var(--tx); font-weight:600; min-height:1.2em">Initializing neural engine...</p>
+    <div id="face-action" style="margin-top:15px; display:none">
+       <div style="margin-bottom:12px">
+         <input type="text" id="face-search" placeholder="Search Customer Name/Phone..." oninput="searchCustFace(this.value)" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--acc); background:rgba(0,0,0,0.3); color:var(--tx); font-size:13px">
+         <div id="face-search-results" style="max-height:120px; overflow-y:auto; margin-top:5px; text-align:left; background:var(--card); border-radius:8px; border:1px solid rgba(255,255,255,0.1); box-shadow:0 10px 30px rgba(0,0,0,0.5)"></div>
+       </div>
+       <button id="btn-reg-face" onclick="regFaceToCust()" class="btn btn-acc" style="display:none; width:100%; padding:12px; border-radius:8px; font-size:12px; font-weight:700; background:#22c55e; margin-bottom:8px"><i class="fas fa-id-card"></i> REGISTER FACE TO SELECTED</button>
+       <button onclick="regNewFace()" class="btn btn-acc" style="width:100%; padding:12px; border-radius:8px; font-size:12px; font-weight:700"><i class="fas fa-plus"></i> NEW CUSTOMER ENTRY</button>
+    </div>
     <div style="display:flex; gap:10px; margin-top:20px;">
        <button class="btn btn-out" onclick="cancelFaceScan()" style="flex:1; padding:10px; border-radius:8px; font-size:12px; font-weight:600">Cancel</button>
     </div>
@@ -876,75 +890,172 @@ function attachRx(input) {
     img.src = objUrl;
   }
 }
-let faceStream = null;
+let faceStream = null, faceDetectionInterval = null, modelsLoaded = false, currentFaceVector = null, selectedRegCustId = null;
+
+function cancelFaceScan() {
+    if(faceStream) {
+        faceStream.getTracks().forEach(t => t.stop());
+        faceStream = null;
+    }
+    if(faceDetectionInterval) {
+        clearInterval(faceDetectionInterval);
+        faceDetectionInterval = null;
+    }
+    document.getElementById('face-modal').style.display = 'none';
+    document.getElementById('face-action').style.display = 'none';
+    const fraudAlert = document.getElementById('face-fraud-alert');
+    if(fraudAlert) fraudAlert.style.display = 'none';
+}
+
+function regNewFace() {
+    cancelFaceScan();
+    sw('masters');
+    setTimeout(() => {
+        stab(document.querySelector('.tab[onclick*="mt-cust"]'), 'mt-cust');
+        document.getElementById('cust-mod').style.display = 'flex';
+        document.getElementById('cust-title').textContent = 'Register New Customer';
+        document.getElementById('c-id').value = '';
+        document.getElementById('c-n').value = '';
+        document.getElementById('c-p').value = '';
+        document.getElementById('c-n').focus();
+    }, 100);
+}
+
+function searchCustFace(q) {
+  const res = document.getElementById('face-search-results');
+  if(!q || q.length < 2) { res.innerHTML = ''; return; }
+  const matches = CUSTOMERS.filter(c => (c.name.toLowerCase().includes(q.toLowerCase()) || c.phone.includes(q)))
+    .slice(0, 5);
+  res.innerHTML = matches.map(c => `
+    <div onclick="selectCustForFace(${c.id}, '${c.name.replace(/'/g, "\\'")}')" style="padding:10px; cursor:pointer; border-bottom:1px solid rgba(255,255,255,0.05); font-size:12px; color:var(--tx)">
+      <i class="fas fa-user" style="color:var(--acc); margin-right:8px"></i> ${c.name} <span style="opacity:0.5; float:right">(${c.phone})</span>
+    </div>
+  `).join('');
+}
+
+function selectCustForFace(id, name) {
+  selectedRegCustId = id;
+  document.getElementById('face-search').value = name;
+  document.getElementById('face-search-results').innerHTML = '';
+  document.getElementById('btn-reg-face').style.display = 'block';
+}
+
+async function regFaceToCust() {
+  if(!selectedRegCustId || !currentFaceVector) return;
+  const btn = document.getElementById('btn-reg-face');
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> REGISTERING...';
+  try {
+    const response = await fetch(API + `/customers/${selectedRegCustId}/face`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ face_vector: currentFaceVector })
+    });
+    const result = await response.json();
+    if(result.status === 'success') {
+      const cIdx = CUSTOMERS.findIndex(x => x.id == selectedRegCustId);
+      if(cIdx !== -1) CUSTOMERS[cIdx].face_vector = JSON.stringify(currentFaceVector);
+      
+      document.getElementById('face-status').innerHTML = '<div style="color:#22c55e; font-weight:700; font-size:16px"><i class="fas fa-check-circle"></i> ENROLLED SUCCESSFULLY!</div>';
+      document.getElementById('face-action').style.display = 'none';
+      setTimeout(() => { triggerFaceScan(); }, 1500);
+    } else { alert('Error: ' + result.message); }
+  } catch (e) { console.error(e); alert('Failed to register face.'); }
+  btn.innerHTML = '<i class="fas fa-id-card"></i> REGISTER FACE TO SELECTED';
+}
+
 async function triggerFaceScan() {
-  if(!window.faceapi || !faceapi.nets.tinyFaceDetector.isLoaded) { alert('AI Models are still loading (about 5MB). Please try again in 5 seconds.'); return; }
+  selectedRegCustId = null;
+  currentFaceVector = null;
+  const searchInp = document.getElementById('face-search');
+  if(searchInp) searchInp.value = '';
+  const regBtn = document.getElementById('btn-reg-face');
+  if(regBtn) regBtn.style.display = 'none';
+
   const modal = document.getElementById('face-modal');
   const vid = document.getElementById('face-vid');
-  modal.style.display = 'flex';
-  document.getElementById('face-status').textContent = 'Accessing camera...';
-  document.getElementById('face-status').style.color = 'var(--tx)';
+  const canvas = document.getElementById('face-canvas');
+  const status = document.getElementById('face-status');
   
+  modal.style.display = 'flex';
+  status.textContent = 'Preparing system...';
+  status.style.color = 'var(--tx)';
+
+  if(!modelsLoaded) {
+    status.textContent = 'Loading AI Models (5MB)...';
+    try {
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri('/static/models'),
+        faceapi.nets.faceLandmark68Net.loadFromUri('/static/models'),
+        faceapi.nets.faceRecognitionNet.loadFromUri('/static/models')
+      ]);
+      modelsLoaded = true;
+    } catch (err) {
+      status.textContent = 'Model load failed: ' + err.message;
+      status.style.color = '#ef4444';
+      setTimeout(() => { modal.style.display = 'none'; }, 3000);
+      return;
+    }
+  }
+
   try {
-    faceStream = await navigator.mediaDevices.getUserMedia({video: {facingMode: 'user'}});
+    status.textContent = 'Accessing camera...';
+    faceStream = await navigator.mediaDevices.getUserMedia({video: {facingMode: 'user', width: 340, height: 340}});
     vid.srcObject = faceStream;
-    document.getElementById('face-status').textContent = 'Analyzing facial features...';
     
-    setTimeout(async () => {
-      const det = await faceapi.detectSingleFace(vid, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-      if(!det) {
-         document.getElementById('face-status').textContent = 'No face detected. Try again.';
-         document.getElementById('face-status').style.color = '#ef4444';
-         setTimeout(() => { if(faceStream){ faceStream.getTracks().forEach(t=>t.stop()); faceStream=null; } modal.style.display='none';}, 1500);
-         return;
-      }
-      
-      const labeled = [];
-      CUSTOMERS.forEach(c => {
-         if(c.face_vector && c.face_vector.length > 50) {
-            try {
-               const arr = new Float32Array(JSON.parse(c.face_vector));
-               labeled.push(new faceapi.LabeledFaceDescriptors(c.name + '|' + c.phone, [arr]));
-            } catch(e){ console.error('Vector err:', e); }
-         }
-      });
-      
-      if(labeled.length === 0) {
-         document.getElementById('face-status').textContent = 'Database empty. No enrolled faces.';
-         document.getElementById('face-status').style.color = '#ef4444';
-         setTimeout(() => { if(faceStream){ faceStream.getTracks().forEach(t=>t.stop()); faceStream=null; } modal.style.display='none';}, 2000);
-         return;
-      }
-      
-      const faceMatcher = new faceapi.FaceMatcher(labeled, 0.55);
-      const bestMatch = faceMatcher.findBestMatch(det.descriptor);
-      
-      if(bestMatch.label === 'unknown') {
-         document.getElementById('face-status').textContent = 'New Face! Enrolling temporarily...';
-         document.getElementById('face-status').style.color = '#f5a623';
-         
-         let h=document.getElementById('pos-face-vector');
-         if(!h){ h=document.createElement('input');h.type='hidden';h.id='pos-face-vector';document.body.appendChild(h); }
-         h.value = JSON.stringify(Array.from(det.descriptor));
-         
-         setTimeout(() => { if(faceStream){ faceStream.getTracks().forEach(t=>t.stop()); faceStream=null; } modal.style.display='none'; document.getElementById('cn').focus(); }, 2000);
-      } else {
-         const [mName, mPhone] = bestMatch.label.split('|');
-         document.getElementById('face-status').textContent = `Match Found: ${mName} (${(100 - bestMatch.distance * 100).toFixed(0)}%)`;
-         document.getElementById('face-status').style.color = '#22c55e';
-         speakGreeting(mName, '');
-         setTimeout(() => {
-           if(faceStream){ faceStream.getTracks().forEach(t=>t.stop()); faceStream=null; }
-           modal.style.display = 'none';
-           document.getElementById('cn').value = mName;
-           document.getElementById('cp').value = mPhone;
-         }, 1200);
-      }
-    }, 1500);
+    vid.onloadedmetadata = () => {
+      status.textContent = 'Scanning biometrics...';
+      faceDetectionInterval = setInterval(async () => {
+        if(!faceStream) return;
+        const detections = await faceapi.detectSingleFace(vid, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (detections) {
+          currentFaceVector = Array.from(detections.descriptor);
+          const dims = faceapi.matchDimensions(canvas, vid, true);
+          const resized = faceapi.resizeResults(detections, dims);
+          faceapi.draw.drawDetections(canvas, resized);
+
+          try {
+            const response = await fetch(API + '/customers/face-match', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ face_vector: currentFaceVector })
+            });
+            const result = await response.json();
+            if (result.status === 'match') {
+              const c = result.customer;
+              const fraudAlert = document.getElementById('face-fraud-alert');
+              const fraudReason = document.getElementById('face-fraud-reason');
+              if (result.wanted) {
+                if(fraudReason) fraudReason.textContent = result.wanted_reason;
+                if(fraudAlert) fraudAlert.style.display = 'block';
+              } else {
+                if(fraudAlert) fraudAlert.style.display = 'none';
+              }
+              status.innerHTML = `<div style="color:#22c55e; font-weight:700; font-size:16px">MATCH FOUND!</div><div style="font-size:14px">${c.name}</div><div style="font-size:12px;opacity:0.7">${c.phone}</div>`;
+              speakGreeting(c.name, c.title);
+              clearInterval(faceDetectionInterval);
+              setTimeout(() => {
+                cancelFaceScan();
+                const cnInp = document.getElementById('cn');
+                const cpInp = document.getElementById('cp');
+                if(cnInp) cnInp.value = c.name;
+                if(cpInp) cpInp.value = c.phone;
+                if(cnInp) cnInp.dispatchEvent(new Event('input'));
+              }, 1500);
+            } else {
+              status.innerHTML = '<span style="color:#f5a623; font-weight:600">Unknown visitor</span>';
+              document.getElementById('face-action').style.display = 'block';
+            }
+          } catch (e) { console.error('Match Error:', e); }
+        } else {
+          status.textContent = 'Please look at camera';
+        }
+      }, 200);
+    };
   } catch (err) {
-    document.getElementById('face-status').textContent = 'Camera access error: ' + err;
-    document.getElementById('face-status').style.color = '#ef4444';
-    setTimeout(() => { modal.style.display = 'none'; }, 2000);
+    status.textContent = 'Camera error: ' + err.message;
+    setTimeout(() => { cancelFaceScan(); }, 2000);
   }
 }
 // Clock
@@ -1703,7 +1814,7 @@ async function enrollFace(e) {
 }
 
 function sv_cust(){const id=document.getElementById('c-id').value,n=document.getElementById('c-n').value.trim(),p=document.getElementById('c-p').value.trim(),a=document.getElementById('c-a').value.trim(),e=document.getElementById('c-e').value.trim(),fh=document.getElementById('c-fh').value,fr=document.getElementById('c-fr').value.trim(),f=document.getElementById('c-face').value;if(!n){alert('Enter Customer Name');return;}const d=id?CUSTOMERS.find(x=>x.id==id):{};fetch(API+'/customers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id||null,name:n,phone:p,address:a,email:e,visits:d.visits||1,total:d.total_spend||0,face_vector:f,family_head_id:fh||null,family_relation:fr})}).then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.message||'Save failed')});return r.json()}).then(()=>{rMasters();document.getElementById('cust-mod').style.display='none';}).catch(err=>alert(err.message));}
-function dcust(id){if(!confirm('Delete this customer?'))return;fetch(API+'/customers/'+id,{method:'DELETE'}).then(()=>rMasters());}
+function dcust(id){if(!confirm('Delete this customer?'))return;fetch(API+'/customers/'+id,{method:'DELETE'}).then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.error||'Delete failed')});rMasters();}).catch(err=>alert(err.message));}
 
 function asup(){document.getElementById('sup-mod').style.display='flex';document.getElementById('sup-title').textContent='Add Supplier';document.getElementById('s-id').value='';document.getElementById('s-n').value='';document.getElementById('s-p').value='';document.getElementById('s-g').value='';document.getElementById('s-st').value='Active';document.getElementById('s-n').focus();}
 function esup(id){const s=SUPPLIERS.find(x=>x.id==id);if(!s)return;document.getElementById('sup-mod').style.display='flex';document.getElementById('sup-title').textContent='Edit Supplier';document.getElementById('s-id').value=s.id;document.getElementById('s-n').value=s.name;document.getElementById('s-p').value=s.phone;document.getElementById('s-g').value=s.gst||'';document.getElementById('s-st').value=s.status||'Active';document.getElementById('s-n').focus();}
@@ -1712,10 +1823,10 @@ function sv_sup(){const id=document.getElementById('s-id').value,n=document.getE
 function adoc(){document.getElementById('doc-mod').style.display='flex';document.getElementById('doc-title').textContent='Add Doctor';document.getElementById('d-id').value='';document.getElementById('d-n').value='';document.getElementById('d-s').value='';document.getElementById('d-h').value='';document.getElementById('d-p').value='';document.getElementById('d-n').focus();}
 function edoc(id){const d=DOCTORS.find(x=>x.id==id);if(!d)return;document.getElementById('doc-mod').style.display='flex';document.getElementById('doc-title').textContent='Edit Doctor';document.getElementById('d-id').value=d.id;document.getElementById('d-n').value=d.name;document.getElementById('d-s').value=d.specialty;document.getElementById('d-h').value=d.hospital;document.getElementById('d-p').value=d.phone;document.getElementById('d-n').focus();}
 function sv_doc(){const id=document.getElementById('d-id').value,n=document.getElementById('d-n').value.trim(),s=document.getElementById('d-s').value.trim(),h=document.getElementById('d-h').value.trim(),p=document.getElementById('d-p').value.trim();if(!n){alert('Enter Doctor Name');return;}fetch(API+'/doctors',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id||null,name:n,specialty:s,hospital:h,phone:p})}).then(()=>{rMasters();document.getElementById('doc-mod').style.display='none';});}
-function ddoc(id){if(!confirm('Delete this doctor?'))return;fetch(API+'/doctors/'+id,{method:'DELETE'}).then(()=>rMasters());}
+function ddoc(id){if(!confirm('Delete this doctor?'))return;fetch(API+'/doctors/'+id,{method:'DELETE'}).then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.error||'Delete failed')});rMasters();}).catch(err=>alert(err.message));}
 
 function dm_sup(id){if(!confirm('Delete this supplier?'))return;fetch(API+'/suppliers/'+id,{method:'DELETE'}).then(()=>rMasters());}
-function dm(id){if(!confirm('Permanently delete this medicine?'))return;fetch(API+'/medicines/'+id,{method:'DELETE'}).then(()=>{loadInventory();if(cart[id]){delete cart[id];rct();}});}
+function dm(id){if(!confirm('Permanently delete this medicine?'))return;fetch(API+'/medicines/'+id,{method:'DELETE'}).then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.error||'Delete failed')});loadInventory();if(cart[id]){delete cart[id];rct();}}).catch(err=>alert(err.message));}
 function us(id){const i=MEDS.find(x=>x.id==id);if(!i)return;let nv=prompt(`Update stock for ${i.n}:`,i.s);if(nv!==null){nv=parseInt(nv);if(!isNaN(nv)){fetch(API+'/medicines',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...i,s:nv})}).then(()=>loadInventory());}}}
 
 let allBills=[];
