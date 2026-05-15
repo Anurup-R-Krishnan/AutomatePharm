@@ -251,7 +251,13 @@ def finance_summary():
     )
     adjustment_loss = abs(adjustment_loss)
 
-    gross_profit = sales_total - purchase_total - purchase_returns_total - adjustment_loss
+    cogs = float(
+        db.session.query(func.coalesce(func.sum(SalesBillItem.qty_sold * SalesBillItem.purchase_rate_at_sale), 0))
+        .filter(SalesBillItem.bill_id.in_(sales_query.with_entities(SalesBill.bill_id)))
+        .scalar()
+    )
+
+    gross_profit = sales_total - cogs - adjustment_loss
     net_profit = gross_profit - expense_total
     bill_count = int(sales_query.count())
 
