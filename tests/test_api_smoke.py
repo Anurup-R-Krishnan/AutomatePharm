@@ -816,7 +816,7 @@ def test_customer_family_account_flow(client):
         json={
             "cust": family_member_name,
             "phone": "9000000102",
-            "pay": "cash",
+            "pay": "credit",
             "sub": 100,
             "disc": 0,
             "tax": 0,
