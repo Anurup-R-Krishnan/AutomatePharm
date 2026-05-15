@@ -20,7 +20,7 @@ from .hr import Salesman, AttendanceLog, SalesmanLedger
 
 
 # Inventory
-from .inventory import StockBatch, StockLedger, ExpiryAlert
+from .inventory import StockBatch, StockLedger, ExpiryAlert, StockAdjustment
 
 
 # AI / CV / ML
@@ -49,4 +49,4 @@ from .finance import GstTransaction, Expense
 
 
 # System / Audit
-from .system import AuditLog, SmsLog, SystemSetting
+from .system import AuditLog, SystemSetting

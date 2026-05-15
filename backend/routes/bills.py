@@ -7,8 +7,8 @@ from ..extensions import db
 from .auth import login_required
 from ..models.sales import SalesBill, SalesBillItem, BillingVoucher
 from ..models.core import Customer, Doctor, Item, Location
-from ..models.inventory import StockBatch
-from ..models.lookups import BillType
+from ..models.inventory import StockBatch, StockLedger
+from ..models.lookups import BillType, TxnType
 from ..analytics_logic import update_customer_purchase_pattern
 from ..services.whatsapp import send_whatsapp_receipt
 
@@ -147,21 +147,66 @@ def _adjust_customer(name: str, phone: str, total_delta: float, visit_delta: int
     db.session.flush()
 
 
-def _apply_stock_delta(items: list, multiplier: int) -> None:
-    """Adjust StockBatch.current_qty for each item in a bill."""
+def _apply_stock_delta(bill_id: int, items: list, multiplier: int) -> None:
+    """Adjust StockBatch.current_qty for each item in a bill using FIFO logic for sales."""
+    txn_type_code = "SALE" if multiplier < 0 else "RETURN"
+    txn_type = TxnType.query.filter_by(txn_type_code=txn_type_code).first()
+    if not txn_type:
+        txn_type = TxnType(txn_type_code=txn_type_code, txn_type_name="Sales" if multiplier < 0 else "Sales Return")
+        db.session.add(txn_type)
+        db.session.flush()
+
     for cart_item in items:
         item_id = str(cart_item.get("id", "")).strip()
-        qty = int(cart_item.get("qty", 0) or 0)
-        if not item_id or qty <= 0:
+        qty_to_adjust = int(cart_item.get("qty", 0) or 0)
+        if not item_id or qty_to_adjust <= 0:
             continue
-        batch = (
-            StockBatch.query
-            .filter_by(item_id=item_id)
-            .order_by(StockBatch.stock_batch_id.desc())
-            .first()
-        )
-        if batch:
-            batch.current_qty = max(0, batch.current_qty + qty * multiplier)
+
+        if multiplier < 0:
+            # --- SALES (FIFO Logic) ---
+            # --- SALES (Simplified) ---
+            batch = (
+                StockBatch.query.filter_by(item_id=item_id)
+                .order_by(StockBatch.expiry_date.asc(), StockBatch.stock_batch_id.asc())
+                .first()
+            )
+
+            if batch:
+                deduct = qty_to_adjust
+                batch.current_qty -= deduct
+                
+                # Log to StockLedger
+                ledger = StockLedger(
+                    stock_batch_id=batch.stock_batch_id,
+                    item_id=batch.item_id,
+                    txn_type_id=txn_type.txn_type_id,
+                    txn_date=date_type.today(),
+                    qty_in=0,
+                    qty_out=deduct,
+                    balance_qty=batch.current_qty,
+                    ref_type="SALE",
+                    ref_id=bill_id
+                )
+                db.session.add(ledger)
+
+
+        else:
+            # --- RETURNS (Restore to Newest Batch) ---
+            batch = StockBatch.query.filter_by(item_id=item_id).order_by(StockBatch.expiry_date.desc()).first()
+            if batch:
+                batch.current_qty += qty_to_adjust
+                ledger = StockLedger(
+                    stock_batch_id=batch.stock_batch_id,
+                    item_id=batch.item_id,
+                    txn_type_id=txn_type.txn_type_id,
+                    txn_date=date_type.today(),
+                    qty_in=qty_to_adjust,
+                    qty_out=0,
+                    balance_qty=batch.current_qty,
+                    ref_type="RETURN",
+                    ref_id=bill_id
+                )
+                db.session.add(ledger)
     db.session.flush()
 
 
@@ -524,44 +569,40 @@ def save_bill():
         db.session.add(bill)
         db.session.flush()  # get bill.bill_id
 
-        # Create bill line items
+        # Create bill line items using FIFO batches
         for cart_item in cart_items:
             item_id = str(cart_item.get("id", "")).strip()
-            qty     = int(cart_item.get("qty", 1) or 1)
-            price   = float(cart_item.get("p", 0) or 0)
+            qty_needed = int(cart_item.get("qty", 1) or 1)
+            price = float(cart_item.get("p", 0) or 0)
             item_obj = Item.query.get(item_id)
+            if not item_obj: continue
 
-            batch = (
-                StockBatch.query
-                .filter_by(item_id=item_id)
-                .order_by(StockBatch.stock_batch_id.desc())
-                .first()
-            )
-            if not batch or not item_obj:
-                continue  # skip items not in inventory
+            # Find the primary batch for this item
+            batch = StockBatch.query.filter_by(item_id=item_id).order_by(StockBatch.expiry_date.asc()).first()
+            if batch:
+                bill_item = SalesBillItem(
+                    bill_id=bill.bill_id, 
+                    stock_batch_id=batch.stock_batch_id, 
+                    item_id=item_id, 
+                    qty_sold=qty_needed, 
+                    mrp_at_sale=float(batch.mrp), 
+                    purchase_rate_at_sale=float(batch.purchase_rate), 
+                    selling_price_at_sale=price, 
+                    discount_pct=0, 
+                    net_rate=price, 
+                    gst_slab_id=item_obj.sales_gst_slab_id, 
+                    cgst_pct=2.5, 
+                    sgst_pct=2.5, 
+                    igst_pct=0, 
+                    gst_amount=round(price * qty_needed * 0.05, 2), 
+                    profit_pct=0, 
+                    value=round(price * qty_needed, 2)
+                )
+                db.session.add(bill_item)
 
-            bill_item = SalesBillItem(
-                bill_id=bill.bill_id,
-                stock_batch_id=batch.stock_batch_id,
-                item_id=item_id,
-                qty_sold=qty,
-                mrp_at_sale=float(batch.mrp),
-                purchase_rate_at_sale=float(batch.purchase_rate),
-                selling_price_at_sale=price,
-                discount_pct=0,
-                net_rate=price,
-                gst_slab_id=item_obj.sales_gst_slab_id,
-                cgst_pct=2.5,
-                sgst_pct=2.5,
-                igst_pct=0,
-                gst_amount=round(price * qty * 0.05, 2),
-                profit_pct=0,
-                value=round(price * qty, 2),
-            )
-            db.session.add(bill_item)
 
         # Deduct stock
-        _apply_stock_delta(cart_items, -1)
+        _apply_stock_delta(bill.bill_id, cart_items, -1)
 
         # Update customer totals
         _adjust_customer(customer_name, customer_phone, net, 1)

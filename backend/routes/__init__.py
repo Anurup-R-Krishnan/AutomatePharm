@@ -4,7 +4,7 @@ from .bills import bills_bp
 from .core import core_bp
 from .inventory import inventory_bp
 from .masters import masters_bp
-from .sms import sms_bp
+
 from .purchases import purchases_bp
 from .communications import communications_bp
 from .auth import auth_bp
@@ -22,7 +22,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(purchases_bp)
     app.register_blueprint(masters_bp)
     app.register_blueprint(communications_bp)
-    app.register_blueprint(sms_bp)
+
     app.register_blueprint(finance_bp)
     app.register_blueprint(analytics_bp)
     app.register_blueprint(wanted_list_bp)

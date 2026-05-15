@@ -1,4 +1,5 @@
 from datetime import datetime
+from sqlalchemy.dialects.postgresql import UUID
 from ..extensions import db
 
 
@@ -72,3 +73,17 @@ class ExpiryAlert(db.Model):
     __table_args__ = (
         db.CheckConstraint("alert_level IN ('CRITICAL','WARN','INFO')", name='alert_level_check'),
     )
+
+
+class StockAdjustment(db.Model):
+    __tablename__ = 'stock_adjustments'
+
+    adjustment_id = db.Column(db.BigInteger, primary_key=True)
+    stock_batch_id = db.Column(db.Integer, db.ForeignKey('stock_batches.stock_batch_id'), nullable=False)
+    item_id = db.Column(db.String(10), db.ForeignKey('items.item_id'), nullable=False)
+    adj_date = db.Column(db.Date, nullable=False, default=datetime.utcnow)
+    qty = db.Column(db.Integer, nullable=False)  # negative for reduction (waste/damage), positive for audit corrections
+    reason = db.Column(db.String(50), nullable=False)  # 'DAMAGE', 'EXPIRED', 'THEFT', 'CORRECTION'
+    remarks = db.Column(db.Text)
+    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.user_id'), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)

@@ -10,7 +10,9 @@ from ..models.core import FinancialYear, Supplier, User
 from ..models.finance import Expense
 from ..models.purchase import PurchaseInvoice, PurchasePayment, PurchaseReturn
 from ..models.lookups import PaymentMode
-from ..models.sales import SalesBill
+from ..models.sales import SalesBill, SalesBillItem
+
+from ..models.inventory import StockAdjustment, StockBatch
 
 finance_bp = Blueprint("finance", __name__)
 
@@ -198,6 +200,7 @@ def finance_summary():
     purchase_query = _purchase_scope(start_date, end_date)
     return_query = _return_scope(start_date, end_date)
     expense_query = _expense_scope(start_date, end_date)
+    adj_query = _apply_date_filter(StockAdjustment.query, StockAdjustment.adj_date, start_date, end_date)
 
     sales_total = float(
         db.session.query(func.coalesce(func.sum(SalesBill.net_amount), 0))
@@ -239,7 +242,16 @@ def finance_summary():
         .scalar()
     )
 
-    gross_profit = sales_total - purchase_total - purchase_returns_total
+    adjustment_loss = float(
+        db.session.query(func.coalesce(func.sum(StockAdjustment.qty * StockBatch.purchase_rate), 0))
+        .join(StockBatch, StockAdjustment.stock_batch_id == StockBatch.stock_batch_id)
+        .filter(StockAdjustment.adjustment_id.in_(adj_query.with_entities(StockAdjustment.adjustment_id)))
+        .filter(StockAdjustment.qty < 0)
+        .scalar()
+    )
+    adjustment_loss = abs(adjustment_loss)
+
+    gross_profit = sales_total - purchase_total - purchase_returns_total - adjustment_loss
     net_profit = gross_profit - expense_total
     bill_count = int(sales_query.count())
 
@@ -253,6 +265,7 @@ def finance_summary():
             "supplier_payables_total": max(0.0, supplier_payables_total),
             "gross_profit": gross_profit,
             "net_profit": net_profit,
+            "adjustment_loss": adjustment_loss,
             "bill_count": bill_count,
             "daily_sales": [
                 {
@@ -330,6 +343,7 @@ def profit_loss_report():
     return_query = _apply_date_filter(return_query, PurchaseReturn.return_date, start_date, end_date)
     expense_query = Expense.query.filter(Expense.is_active.is_(True))
     expense_query = _apply_date_filter(expense_query, Expense.expense_date, start_date, end_date)
+    adj_query = _apply_date_filter(StockAdjustment.query, StockAdjustment.adj_date, start_date, end_date)
 
     sales_total = float(db.session.query(func.coalesce(func.sum(SalesBill.net_amount), 0)).filter(SalesBill.bill_id.in_(sales_query.with_entities(SalesBill.bill_id))).scalar())
     tax_total = float(
@@ -353,8 +367,12 @@ def profit_loss_report():
         .scalar()
     )
 
-    gross_profit = sales_total - purchase_total - purchase_returns_total
+    adjustment_loss = float(db.session.query(func.coalesce(func.sum(StockAdjustment.qty * StockBatch.purchase_rate), 0)).join(StockBatch, StockAdjustment.stock_batch_id == StockBatch.stock_batch_id).filter(StockAdjustment.adjustment_id.in_(adj_query.with_entities(StockAdjustment.adjustment_id))).filter(StockAdjustment.qty < 0).scalar())
+    adjustment_loss = abs(adjustment_loss)
+    cogs = float(db.session.query(func.coalesce(func.sum(SalesBillItem.qty_sold * SalesBillItem.purchase_rate_at_sale), 0)).filter(SalesBillItem.bill_id.in_(sales_query.with_entities(SalesBill.bill_id))).scalar())
+    gross_profit = sales_total - cogs - adjustment_loss
     net_profit = gross_profit - expense_total
+
     return jsonify(
         {
             "sales_total": sales_total,
@@ -364,6 +382,7 @@ def profit_loss_report():
             "expense_total": expense_total,
             "gross_profit": gross_profit,
             "net_profit": net_profit,
+            "adjustment_loss": adjustment_loss,
         }
     )
 

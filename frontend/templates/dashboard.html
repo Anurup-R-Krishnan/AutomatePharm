@@ -27,7 +27,7 @@
   <div class="ni" data-panel="reorder" onclick="sw('reorder',this)"><i class="fas fa-robot"></i><span>Re-Order AI</span></div>
   <div class="ni" data-panel="system" onclick="sw('system',this)"><i class="fas fa-display"></i><span>System</span></div>
   <div class="ni" data-panel="utilities" onclick="sw('utilities',this)"><i class="fas fa-hard-drive"></i><span>Utilities</span></div>
-  <div class="ni" data-panel="sms" onclick="sw('sms',this)"><i class="fas fa-comment-dots"></i><span>SMS</span></div>
+
   <div class="ni" data-panel="insights" onclick="sw('insights',this)"><i class="fas fa-chart-line"></i><span>Data Insights</span></div>
   <div class="sp"></div>
   <div class="nl">OTHER</div>
@@ -117,7 +117,7 @@
         <div class="ar">
           <button class="btn btn-r" style="flex:0 0 auto" onclick="cc()"><i class="fas fa-trash"></i></button>
           <button class="btn btn-out" style="flex:1" onclick="hb()"><i class="fas fa-pause"></i>Hold</button>
-          <button class="btn btn-out" style="flex:1" onclick="openSmsDraftFromBill()"><i class="fas fa-comment-dots"></i>SMS</button>
+
           <button class="btn btn-acc" style="flex:1" onclick="pb2()"><i class="fas fa-print"></i>Bill</button>
         </div>
       </div>
@@ -137,14 +137,14 @@
     <div class="tw" style="margin-top:10px;max-height:220px;overflow:auto">
       <table>
         <thead><tr><th>Medicine</th><th>Qty</th><th>MRP</th><th>Batch</th><th>Expiry</th></tr></thead>
-        <tbody id="pur-import-preview"><tr><td colspan="5" style="text-align:center;color:var(--dim)">No Excel parsed yet.</td></tr></tbody>
+        <tbody id="pur-import-preview"><tr><td colspan="5" style=\"text-align:center;color:var(--dim)">No Excel parsed yet.</td></tr></tbody>
       </table>
     </div>
   </div>
   <div class="tw"><table>
     <thead><tr><th>PO No.</th><th>Supplier</th><th>Items</th><th>Amount</th><th>Date</th><th>Status</th></tr></thead>
     <tbody id="pur-body">
-      <tr><td colspan="6" style="text-align:center;color:var(--dim)">No purchase orders recorded.</td></tr>
+      <tr><td colspan="6" style=\"text-align:center;color:var(--dim)">No purchase orders recorded.</td></tr>
     </tbody>
   </table></div>
 </div></div>
@@ -165,7 +165,7 @@
       <th>Offer</th><th>Re-Order</th><th>Max</th><th style="text-align:right">Action</th>
     </tr></thead>
     <tbody id="inv-body">
-      <tr><td colspan="16" style="text-align:center;color:var(--dim)">Loading inventory...</td></tr>
+      <tr><td colspan="16" style=\"text-align:center;color:var(--dim)">Loading inventory...</td></tr>
     </tbody>
   </table></div>
 </div></div>
@@ -182,7 +182,7 @@
     <div class="tw"><table>
       <thead><tr><th>Name</th><th>Phone</th><th>Visits</th><th>Finances</th><th style="text-align:right">Action</th></tr></thead>
       <tbody id="cust-body">
-        <tr><td colspan="4" style="text-align:center;color:var(--dim)">No customer records.</td></tr>
+        <tr><td colspan="4" style=\"text-align:center;color:var(--dim)">No customer records.</td></tr>
       </tbody>
     </table></div>
   </div>
@@ -191,7 +191,7 @@
     <div class="tw"><table>
       <thead><tr><th>Supplier</th><th>Phone</th><th>GST No.</th><th>Status</th><th style="text-align:right">Action</th></tr></thead>
       <tbody id="sup-body">
-        <tr><td colspan="5" style="text-align:center;color:var(--dim)">No supplier records.</td></tr>
+        <tr><td colspan="5" style=\"text-align:center;color:var(--dim)">No supplier records.</td></tr>
       </tbody>
     </table></div>
   </div>
@@ -200,7 +200,7 @@
     <div class="tw"><table>
       <thead><tr><th>Doctor</th><th>Speciality</th><th>Hospital</th><th>Phone</th></tr></thead>
       <tbody id="doc-body">
-        <tr><td colspan="4" style="text-align:center;color:var(--dim)">No doctor records.</td></tr>
+        <tr><td colspan="4" style=\"text-align:center;color:var(--dim)">No doctor records.</td></tr>
       </tbody>
     </table></div>
   </div>
@@ -209,7 +209,7 @@
     <div class="tw"><table>
       <thead><tr><th>Name</th><th>Location</th><th>Notes</th><th>Status</th><th>Medicines</th><th style="text-align:right">Action</th></tr></thead>
       <tbody id="shelf-body">
-        <tr><td colspan="6" style="text-align:center;color:var(--dim)">No shelf locations.</td></tr>
+        <tr><td colspan="6" style=\"text-align:center;color:var(--dim)">No shelf locations.</td></tr>
       </tbody>
     </table></div>
   </div>
@@ -237,53 +237,7 @@
     <div class="crd" style="padding:16px">
       <div class="sec-hd"><span class="sec-t">Low Stock</span><span style="font-size:11px;color:var(--acc);cursor:pointer">View All</span></div>
       <div id="sys-low"></div>
-    </div>
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1.15fr;gap:14px;align-items:start;margin-top:14px">
-    <div class="crd fm" style="padding:16px">
-      <div style="font-size:13px;font-weight:600;margin-bottom:12px">Compose Message</div>
-      <label>Recipient Customer</label>
-      <select id="sms-customer" onchange="smsPickCustomer(this.value)" style="width:100%;background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px 10px;color:var(--tx);font-size:12px;outline:none;font-family:'Inter',sans-serif">
-        <option value="">Select customer</option>
-      </select>
-      <label>Recipient Phone</label>
-      <input type="text" id="sms-phone" placeholder="Enter phone number"/>
-      <div class="g2" style="margin-top:2px">
-        <div>
-          <label>Bill Ref</label>
-
-          <input type="text" id="sms-bill" placeholder="Bill ID / reference"/>
-        </div>
-        <div>
-          <label>Template</label>
-          <select id="sms-template" onchange="smsApplyTemplate(this.value)">
-            <option value="">Custom Message</option>
-          </select>
-        </div>
-      </div>
-      <label>Message</label>
-      <textarea id="sms-compose-body" rows="7" placeholder="Type your message..."></textarea>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px">
-        <button class="btn btn-out" style="flex:1;min-width:120px" onclick="smsQuickTemplate('bill_ready')"><i class="fas fa-file-invoice"></i>Bill Ready</button>
-        <button class="btn btn-out" style="flex:1;min-width:120px" onclick="smsQuickTemplate('reminder')"><i class="fas fa-bell"></i>Pickup Reminder</button>
-        <button class="btn btn-out" style="flex:1;min-width:120px" onclick="smsQuickTemplate('custom')"><i class="fas fa-pen"></i>Custom</button>
-      </div>
-      <button class="btn btn-acc" style="width:100%;justify-content:center;padding:11px" onclick="sendSmsMessage()"><i class="fas fa-paper-plane"></i>Send SMS</button>
-    </div>
-    <div class="crd" style="padding:16px">
-      <div class="sec-hd" style="margin-bottom:10px">
-        <span class="sec-t" style="font-size:13px">Message History</span>
-        <span id="sms-sync-state" style="font-size:11px;color:var(--mt)">Ready</span>
-      </div>
-      <div class="tw" style="max-height:640px;overflow:auto">
-        <table>
-          <thead><tr><th>Recipient</th><th>Template</th><th>Message</th><th>Status</th><th>Time</th><th>Action</th></tr></thead>
-          <tbody id="sms-history-body">
-            <tr><td colspan="6" style="text-align:center;color:var(--dim)">No SMS messages yet.</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    </div>>
   </div>
 </div></div>
 <!-- UTILITIES -->
@@ -302,7 +256,7 @@
     <table>
       <thead><tr><th>Bill No.</th><th>Date</th><th>Customer</th><th>Prescription</th><th>Amount</th><th>Method</th><th>Doctor</th><th>Items</th><th>Action</th></tr></thead>
       <tbody id="util-bills-body">
-        <tr><td colspan="9" style="text-align:center;color:var(--dim)">No bills generated yet.</td></tr>
+        <tr><td colspan="9" style=\"text-align:center;color:var(--dim)">No bills generated yet.</td></tr>
       </tbody>
     </table>
   </div>
@@ -392,6 +346,12 @@
       <div style="font-size:13px;font-weight:600;margin-bottom:4px">OCR Analytics</div>
       <div style="font-size:11px;color:var(--mt)">Automation rate</div>
     </div>
+    <div class="crd" onclick="rWasteRep()" style="padding:18px;cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor='#374151'" onmouseout="this.style.borderColor=''">
+      <i class="fas fa-dumpster" style="font-size:22px;color:#f87171;margin-bottom:10px;display:block"></i>
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px">Damage & Waste</div>
+      <div style="font-size:11px;color:var(--mt)">Log broken/lost items</div>
+    </div>
+    </div>
   </div>
 
   <!-- FINANCE / ACCOUNTING PANEL -->
@@ -432,7 +392,7 @@
         <div class="tw" style="overflow:auto;flex:1;max-height:330px">
           <table>
             <thead><tr><th>Date</th><th>Category</th><th>Amount</th><th>Voucher</th><th style="text-align:right">Action</th></tr></thead>
-            <tbody id="expense-body"><tr><td colspan="5" style="text-align:center;color:var(--dim)">No expenses loaded.</td></tr></tbody>
+            <tbody id="expense-body"><tr><td colspan="5" style=\"text-align:center;color:var(--dim)">No expenses loaded.</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -442,7 +402,7 @@
           <div class="tw" style="overflow:auto;flex:1;max-height:260px">
             <table>
               <thead><tr><th>Supplier</th><th>Payable</th><th>Payments</th><th style="text-align:right">Action</th></tr></thead>
-              <tbody id="payable-body"><tr><td colspan="4" style="text-align:center;color:var(--dim)">Loading payables...</td></tr></tbody>
+              <tbody id="payable-body"><tr><td colspan="4" style=\"text-align:center;color:var(--dim)">Loading payables...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -451,7 +411,7 @@
           <div class="tw" style="overflow:auto;flex:1;max-height:260px">
             <table>
               <thead><tr><th>Date</th><th>Bills</th><th>Gross</th><th>Net</th></tr></thead>
-              <tbody id="daily-sales-body"><tr><td colspan="4" style="text-align:center;color:var(--dim)">Loading sales...</td></tr></tbody>
+              <tbody id="daily-sales-body"><tr><td colspan="4" style=\"text-align:center;color:var(--dim)">Loading sales...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -471,7 +431,7 @@
     </div>
     <div class="tw"><table>
       <thead><tr><th>Medicine</th><th>Shelf</th><th>Stock</th><th>Min/Reorder</th><th>Avg Daily</th><th>Forecast Need</th><th>Wanted Qty</th><th>Matched Site</th><th>Status</th></tr></thead>
-      <tbody id="ro-body"><tr><td colspan="9" style="text-align:center;color:var(--dim)">Click Generate List</td></tr></tbody>
+      <tbody id="ro-body"><tr><td colspan="9" style=\"text-align:center;color:var(--dim)">Click Generate List</td></tr></tbody>
     </table></div>
   </div>
   <div class="crd" style="padding:12px">
@@ -483,7 +443,7 @@
     </div>
     <div class="tw"><table>
       <thead><tr><th>Website</th><th>Catalog Mapping</th><th>Action</th></tr></thead>
-      <tbody id="site-body"><tr><td colspan="3" style="text-align:center;color:var(--dim)">No sites configured.</td></tr></tbody>
+      <tbody id="site-body"><tr><td colspan="3" style=\"text-align:center;color:var(--dim)">No sites configured.</td></tr></tbody>
     </table></div>
   </div>
 </div></div>
@@ -508,7 +468,7 @@
     </div>
     <div class="tw"><table>
       <thead><tr><th>Name</th><th>Contact</th><th>Code</th><th>Role</th><th>Action</th></tr></thead>
-      <tbody id="u-body"><tr><td colspan="5" style="text-align:center;color:var(--dim)">No users yet.</td></tr></tbody>
+      <tbody id="u-body"><tr><td colspan="5" style=\"text-align:center;color:var(--dim)">No users yet.</td></tr></tbody>
     </table></div>
   </div>
   <div class="crd" style="padding:12px">
@@ -519,41 +479,7 @@
     </table></div>
   </div>
 </div></div>
-<!-- SMS -->
-<div class="pn" id="p-sms"><div class="pg">
-  <div class="sec-hd">
-    <span class="sec-t">SMS Center</span>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-out" onclick="refreshSmsCenter()"><i class="fas fa-rotate"></i>Refresh</button>
-      <button class="btn btn-acc" onclick="openSmsDraftFromBill()"><i class="fas fa-receipt"></i>Use Current Bill</button>
-    </div>
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-    <div>
-      <div class="crd fm" style="padding:16px;margin-bottom:14px">
-        <div style="font-size:13px;font-weight:600;margin-bottom:12px">Compose Message</div>
-        <label>To (Phone / Group)</label>
-        <input type="text" placeholder="Enter phone or select group"/>
-        <label>Template</label>
-        <select><option>Bill Ready</option><option>Expiry Reminder</option><option>Low Stock Alert</option><option>Custom</option></select>
-        <label>Message</label>
-        <textarea placeholder="Type your message...">Dear customer, your bill from Selvam Medicals is ready. Total: ₹XXX. Thank you!</textarea>
-        <button class="btn btn-acc" style="width:100%"><i class="fas fa-paper-plane"></i>Send Now</button>
-      </div>
-    </div>
-    <div>
-      <div style="font-size:13px;font-weight:600;margin-bottom:10px">Recent Messages</div>
-      <div class="tw"><table>
-        <thead><tr><th>To</th><th>Message</th><th>Status</th><th>Time</th></tr></thead>
-        <tbody>
-          <tr><td>98765 43210</td><td>Bill ready ₹380</td><td><span class="bx bg">Sent</span></td><td>14:32</td></tr>
-          <tr><td>87654 32109</td><td>Expiry reminder</td><td><span class="bx bg">Sent</span></td><td>14:00</td></tr>
-          <tr><td>76543 21098</td><td>Low stock alert</td><td><span class="bx br">Failed</span></td><td>13:45</td></tr>
-        </tbody>
-      </table></div>
-    </div>
-  </div>
-</div></div>
+
 <!-- INSIGHTS -->
 <div class="pn" id="p-insights"><div class="pg">
   <div class="sec-hd">
@@ -574,8 +500,11 @@
           <label style="display:flex;align-items:center;gap:10px;margin-bottom:8px;cursor:pointer;font-size:12px;">
             <input type="checkbox" checked onchange="toggleInsight('sec-basket', this.checked)"> Market Basket
           </label>
-          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:12px;">
+          <label style="display:flex;align-items:center;gap:10px;margin-bottom:8px;cursor:pointer;font-size:12px;">
             <input type="checkbox" checked onchange="toggleInsight('sec-churn', this.checked)"> Customer Churn
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:12px;">
+            <input type="checkbox" checked onchange="toggleInsight('sec-refill', this.checked)"> Refill Reminders
           </label>
         </div>
       </div>
@@ -610,7 +539,7 @@
       </div>
       <div class="tw" style="flex:1; overflow-y:auto;"><table>
         <thead><tr><th>Medicine</th><th style="text-align:right">Units Sold</th></tr></thead>
-        <tbody id="top-items-body"><tr><td colspan="2" style="text-align:center;padding:40px;color:var(--dim)">Calculating volume...</td></tr></tbody>
+        <tbody id="top-items-body"><tr><td colspan="2" style=\"text-align:center;padding:40px;color:var(--dim)">Calculating volume...</td></tr></tbody>
       </table></div>
     </div>
 
@@ -622,7 +551,7 @@
       <div style="font-size:11px;color:var(--mt);margin-bottom:12px">Hidden cross-selling patterns detected in bills.</div>
       <div class="tw" style="flex:1; overflow-y:auto;"><table>
         <thead><tr><th>Item A</th><th>Item B</th><th style="text-align:right">Freq</th></tr></thead>
-        <tbody id="basket-body"><tr><td colspan="3" style="text-align:center;padding:40px;color:var(--dim)">Analyzing patterns...</td></tr></tbody>
+        <tbody id="basket-body"><tr><td colspan="3" style=\"text-align:center;padding:40px;color:var(--dim)">Analyzing patterns...</td></tr></tbody>
       </table></div>
     </div>
 
@@ -634,7 +563,19 @@
       <div style="font-size:11px;color:var(--mt);margin-bottom:12px">Inactive high-value customers (>60 days).</div>
       <div class="tw" style="flex:1; overflow-y:auto;"><table>
         <thead><tr><th>Customer</th><th>Last Visit</th><th style="text-align:right">Spend</th></tr></thead>
-        <tbody id="churn-body"><tr><td colspan="3" style="text-align:center;padding:40px;color:var(--dim)">Identifying...</td></tr></tbody>
+        <tbody id="churn-body"><tr><td colspan="3" style=\"text-align:center;padding:40px;color:var(--dim)">Identifying...</td></tr></tbody>
+      </table></div>
+    </div>
+
+    <!-- Refill Reminders -->
+    <div id="sec-refill" class="crd" style="padding:24px; display:flex; flex-direction:column; min-height:360px;">
+      <div style="font-size:14px;font-weight:600;margin-bottom:15px;">
+        <i class="fas fa-pills" style="color:#22c55e;margin-right:8px"></i> Upcoming Refill Reminders
+      </div>
+      <div style="font-size:11px;color:var(--mt);margin-bottom:12px">Chronic patients due for their monthly medicine.</div>
+      <div class="tw" style="flex:1; overflow-y:auto;"><table>
+        <thead><tr><th>Customer</th><th>Medicine</th><th style="text-align:right">Action</th></tr></thead>
+        <tbody id="refill-body"><tr><td colspan="3" style=\"text-align:center;padding:40px;color:var(--dim)">Loading...</td></tr></tbody>
       </table></div>
     </div>
   </div>
@@ -739,7 +680,7 @@
     <div style="font-size:15px;font-weight:600;margin-bottom:16px;color:#e8ecf4;display:flex;justify-content:space-between;align-items:center;"><span id="cust-title">Add Customer</span><i class="fas fa-xmark" style="cursor:pointer" onclick="document.getElementById('cust-mod').style.display='none'"></i></div>
     <input type="hidden" id="c-id"/><input type="hidden" id="c-face"/>
     <label>Customer Name</label><input type="text" id="c-n"/><label>Phone</label><input type="text" id="c-p"/><label>Address</label><input type="text" id="c-a"/><label>Email</label><input type="text" id="c-e"/><label>Family Head</label><select id="c-fh" style="width:100%;margin-bottom:8px;"><option value="">No family account</option></select><label>Family Relation</label><input type="text" id="c-fr" placeholder="Head / Spouse / Child"/>
-    <div style="text-align:center; margin-bottom: 8px;">
+    <div style=\"text-align:center; margin-bottom: 8px;">
       <video id="c-vid" autoplay playsinline style="width:100%;height:150px;object-fit:cover;display:none;margin-bottom:8px;border-radius:8px;transform:scaleX(-1)"></video>
       <button class="btn btn-out" id="c-btn-scan" style="width:100%;padding:10px;justify-content:center;font-size:11.5px" onclick="enrollFace(event)"><i class="fas fa-camera"></i> Enroll Face Vector</button>
     </div>
@@ -941,7 +882,7 @@ tk();setInterval(tk,1000);
 // Nav
 const ROLE_ACCESS={
   admin:['*'],
-  manager:['sales','purchase','item','masters','reorder','utilities','sms'],
+  manager:['sales','purchase','item','masters','reorder','utilities'],
   user:['sales','purchase','item','reorder'],
   junior:['sales']
 };
@@ -1203,7 +1144,7 @@ function deleteBill(id){
       rKpis();
       loadInventory();
       rMasters();
-      if(typeof refreshSmsCenter==='function') refreshSmsCenter();
+
     })
     .catch(err=>alert('Delete failed: '+err.message));
 }
@@ -1256,8 +1197,39 @@ function updateShelfPreview(){
   medSel.onchange=updateShelfPreview;
 }
 function rmed(list){const g=document.getElementById('mg');g.innerHTML='';if(!list.length){g.innerHTML='<div style="color:var(--mt);font-size:12px;padding:16px;grid-column:1/-1">No medicines found.</div>';return;}list.forEach(m=>{const d=document.createElement('div');let scl='';if(m.s<=0)scl=' os';else if(m.s<15)scl=' ls';d.className='mc'+scl;d.tabIndex=0;d.onclick=(e)=>{if(!e.target.closest('.madd')&&!e.target.closest('.mdel')&&!e.target.closest('.mst'))at(m.id);};const db=`<div class="mdel" title="Delete" onclick="dm('${m.id}');event.stopPropagation()"><i class="fas fa-trash"></i></div>`;d.innerHTML='<div class="mn" title="'+m.n+'">'+m.n+'</div><div class="mcat">'+m.g+' · '+m.c+'</div><div style="font-size:10px;color:var(--mt);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+shelfLabel(m)+'</div><div class="mr"><div class="mp">₹'+m.p+'</div><div class="mst" onclick="editMed(\''+m.id+'\');event.stopPropagation()" title="Edit Medicine">'+m.s+' units <i class="fas fa-pen" style="font-size:8.5px;opacity:0.6"></i></div><div style="display:flex;align-items:center;gap:6px;">'+db+'<div class="madd" onclick="at(\''+m.id+'\');event.stopPropagation()"><i class="fas fa-plus"></i></div></div></div>';g.appendChild(d);});}
-function rItems(list){const tb=document.getElementById('inv-body');if(!tb)return;tb.innerHTML='';if(!list.length){tb.innerHTML='<tr><td colspan="16" style="text-align:center;color:var(--dim)">No items found.</td></tr>';return;}list.forEach(m=>{const st=m.s<=0?'<span class="bx br">Out</span>':(m.s<15?'<span class="bx br" style="background:#f59e0b">Low</span>':'<span class="bx bg">OK</span>');tb.innerHTML+=`<tr><td style="position:sticky;left:0;background:var(--card);border-right:1px solid var(--brd);font-weight:600">${m.n}</td><td>${shelfLabel(m)}</td><td>${m.batch||'—'}</td><td>${m.expiry||'—'}</td><td>₹${m.p_rate}</td><td>${m.p_packing||'—'}</td><td>₹${m.p}</td><td>${m.s_packing||'—'}</td><td>${m.s}</td><td>${m.p_gst}%</td><td>${m.s_gst}%</td><td>${m.disc}%</td><td>${m.offer||'None'}</td><td>${m.reorder}</td><td>${m.max_qty}</td><td style="text-align:right"><button class="btn btn-out" style="padding:4px 8px" onclick="editMed('${m.id}')"><i class="fas fa-pen"></i></button></td></tr>`;});}
-function rPurchases(){fetch(API+'/purchases?t='+Date.now()).then(r=>r.json()).then(ps=>{const tb=document.getElementById('pur-body');if(!tb)return;if(!ps.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--dim)">No purchase orders recorded.</td></tr>';return;}tb.innerHTML='';ps.sort((a,b)=>b.id.localeCompare(a.id)).forEach(p=>{const st=p.status==='Received'?'bg':(p.status==='Cancelled'?'br':'bo');const prf=p.photo?`<i class="fas fa-camera-retro" style="margin-left:6px;opacity:0.6;cursor:pointer" onclick="v_sh('${p.id}')"></i>`:'';tb.innerHTML+=`<tr><td><span class="bx bo">#${p.id}</span></td><td>${p.supplier}</td><td>${p.items}</td><td>₹${p.amount}</td><td>${p.date}</td><td><span class="bx ${st}" onclick="upSt('${p.id}')" style="cursor:pointer">${p.status}</span>${prf}</td></tr>`;});});}
+function rItems(list){
+  const tb=document.getElementById("inv-body");
+  if(!tb)return;
+  tb.innerHTML="";
+  if(!list.length){
+    tb.innerHTML="<tr><td colspan=\"16\" style=\"text-align:center;color:var(--dim)\">No items found.</td></tr>";
+    return;
+  }
+  list.forEach(m=>{
+    tb.innerHTML+=`<tr>
+      <td style="position:sticky;left:0;background:var(--card);border-right:1px solid var(--brd);font-weight:600">${m.n}</td>
+      <td>${shelfLabel(m)}</td>
+      <td>${m.batch||"—"}</td>
+      <td>${m.expiry||"—"}</td>
+      <td>₹${m.p_rate}</td>
+      <td>${m.p_packing||"—"}</td>
+      <td>₹${m.p}</td>
+      <td>${m.s_packing||"—"}</td>
+      <td style="font-weight:600; color:${m.s<10?"#ef4444":"inherit"}">${m.s}</td>
+      <td>${m.p_gst}%</td>
+      <td>${m.s_gst}%</td>
+      <td>${m.disc}%</td>
+      <td>${m.offer||"None"}</td>
+      <td>${m.reorder}</td>
+      <td>${m.max_qty}</td>
+      <td style="text-align:right">
+        <button class="btn btn-out" style="padding:4px 8px" onclick="editMed('${m.id}')" title="Edit Item"><i class="fas fa-pen"></i></button>
+        <button class="btn btn-out" style="padding:4px 8px;margin-left:4px;color:#ef4444;border-color:rgba(239,68,68,0.3)" onclick="openWaste('${m.id}')" title="Damage / Waste"><i class="fas fa-trash-can"></i></button>
+      </td>
+    </tr>`;
+  });
+}
+function rPurchases(){fetch(API+'/purchases?t='+Date.now()).then(r=>r.json()).then(ps=>{const tb=document.getElementById('pur-body');if(!tb)return;if(!ps.length){tb.innerHTML='<tr><td colspan="6" style=\"text-align:center;color:var(--dim)">No purchase orders recorded.</td></tr>';return;}tb.innerHTML='';ps.sort((a,b)=>b.id.localeCompare(a.id)).forEach(p=>{const st=p.status==='Received'?'bg':(p.status==='Cancelled'?'br':'bo');const prf=p.photo?`<i class="fas fa-camera-retro" style="margin-left:6px;opacity:0.6;cursor:pointer" onclick="v_sh('${p.id}')"></i>`:'';tb.innerHTML+=`<tr><td><span class="bx bo">#${p.id}</span></td><td>${p.supplier}</td><td>${p.items}</td><td>₹${p.amount}</td><td>${p.date}</td><td><span class="bx ${st}" onclick="upSt('${p.id}')" style="cursor:pointer">${p.status}</span>${prf}</td></tr>`;});});}
 function v_sh(id){fetch(API+'/purchases').then(r=>r.json()).then(ps=>{const p=ps.find(x=>x.id==id);if(!p||!p.photo)return;const w=window.open('','_blank','width=450,height=550');w.document.write(`<html><body style="background:#0f172a;color:#fff;font-family:sans-serif;padding:20px;text-align:center;"><h3>Order Verification Proof</h3><img src="${p.photo}" style="width:100%;border-radius:8px;border:1px solid #334155"/><div style="text-align:left;margin-top:15px;font-size:13px;"><p><b>ID:</b> #${p.id}</p><p><b>Supplier:</b> ${p.supplier}</p><p><b>Batch:</b> ${p.batch}</p><p><b>Expiry:</b> ${p.expiry}</p></div></body></html>`);});}
 function upSt(id){fetch(API+'/purchases').then(r=>r.json()).then(ps=>{const p=ps.find(x=>x.id==id);if(!p)return;const next={'Pending':'Received','Received':'Cancelled','Cancelled':'Pending'}[p.status]||'Pending';if(next==='Received'){v_open(p);return;}p.status=next;fetch(API+'/purchases',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)}).then(()=>rPurchases());});}
 
@@ -1582,13 +1554,13 @@ function initNav(){
 }
 initNav();
 
-function rMasters(){rCustomers();if(typeof renderSmsRecipients==='function')renderSmsRecipients();rSuppliers();rDoctors();loadShelves();}
+function rMasters(){rCustomers();rSuppliers();rDoctors();loadShelves();}
 let CUSTOMERS=[];
 function rCustomers(){fetch(API+'/customers?t='+Date.now()).then(r=>r.json()).then(cs=>{CUSTOMERS=cs;const tb=document.getElementById('cust-body');const nL=document.getElementById('cust-list');const pL=document.getElementById('phone-list');if(nL&&pL){nL.innerHTML='';pL.innerHTML='';cs.forEach(x=>{nL.innerHTML+=`<option value="${x.name}">${x.phone}</option>`;pL.innerHTML+=`<option value="${x.phone}">${x.name}</option>`;});}if(!tb)return;tb.innerHTML='';if(!cs.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--dim)">No customer records.</td></tr>';return;}cs.forEach(c=>{const bal = c.balance||0; tb.innerHTML+=`<tr><td>${c.name}</td><td>${c.phone}</td><td style="text-align:center">${c.visits}</td><td style="font-weight:600;${bal>0?'color:#ef4444;':''}"><div style="font-size:12px">Bal: ₹${bal.toFixed(2)}</div><div style="font-size:10px;color:var(--mt)">Spend: ₹${c.total_spend.toFixed(2)}</div></td><td style="text-align:right"><i class="fas fa-file-invoice" style="cursor:pointer;color:#22c55e;margin-right:10px" onclick="window.open('/reports/customer-statement/${c.id}','_blank')" title="Account Statement"></i><i class="fas fa-pills" style="cursor:pointer;color:#3b82f6;margin-right:10px" onclick="window.open('/reports/prescription-history/${c.id}','_blank')" title="Prescription History"></i><i class="fas fa-book" style="cursor:pointer;color:#a78bfa;margin-right:10px" onclick="openLedger(${c.id})" title="Ledger"></i><i class="fas fa-comment-dots" style="cursor:pointer;color:var(--acc);margin-right:10px" onclick="openSmsForCustomer(${c.id})" title="SMS Customer"></i><i class="fas fa-edit" style="cursor:pointer;color:var(--acc);margin-right:10px" onclick="ecust(${c.id})"></i><i class="fas fa-trash" style="cursor:pointer;color:#e74c3c" onclick="dcust(${c.id})"></i></td></tr>`})});}
 function renderFamilyHeadOptions(selectedId,currentId){const sel=document.getElementById('c-fh');if(!sel)return;const currentValue=selectedId?String(selectedId):'';sel.innerHTML='<option value="">No family account</option>'+CUSTOMERS.filter(c=>String(c.id)!==String(currentId)).map(c=>`<option value="${c.id}">${c.name} · ${c.phone||'No phone'}</option>`).join('');sel.value=currentValue;}
-function rSuppliers(){fetch(API+'/suppliers?t='+Date.now()).then(r=>r.json()).then(ss=>{SUPPLIERS=ss;const tb=document.getElementById('sup-body');if(!tb)return;tb.innerHTML='';if(!ss.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--dim)">No supplier records.</td></tr>';return;}ss.forEach(s=>tb.innerHTML+=`<tr><td>${s.name}</td><td>${s.phone}</td><td>${s.gst||'—'}</td><td><span class="bx bg">${s.status}</span></td><td style="text-align:right"><i class="fas fa-edit" style="cursor:pointer;color:var(--acc);margin-right:10px" onclick="esup(${s.id})"></i><i class="fas fa-trash" style="cursor:pointer;color:#e74c3c" onclick="dm_sup('${s.id}')"></i></td></tr>`)});}
+function rSuppliers(){fetch(API+'/suppliers?t='+Date.now()).then(r=>r.json()).then(ss=>{SUPPLIERS=ss;const tb=document.getElementById('sup-body');if(!tb)return;tb.innerHTML='';if(!ss.length){tb.innerHTML='<tr><td colspan="6" style=\"text-align:center;color:var(--dim)">No supplier records.</td></tr>';return;}ss.forEach(s=>tb.innerHTML+=`<tr><td>${s.name}</td><td>${s.phone}</td><td>${s.gst||'—'}</td><td><span class="bx bg">${s.status}</span></td><td style="text-align:right"><i class="fas fa-edit" style="cursor:pointer;color:var(--acc);margin-right:10px" onclick="esup(${s.id})"></i><i class="fas fa-trash" style="cursor:pointer;color:#e74c3c" onclick="dm_sup('${s.id}')"></i></td></tr>`)});}
 let DOCTORS=[];
-function rDoctors(){fetch(API+'/doctors?t='+Date.now()).then(r=>r.json()).then(ds=>{DOCTORS=ds;const tb=document.getElementById('doc-body');if(!tb)return;tb.innerHTML='';if(!ds.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--dim)">No doctor records.</td></tr>';return;}ds.forEach(d=>tb.innerHTML+=`<tr><td>${d.name}</td><td>${d.specialty}</td><td>${d.hospital}</td><td>${d.phone}</td><td style="text-align:right"><i class="fas fa-edit" style="cursor:pointer;color:var(--acc);margin-right:10px" onclick="edoc(${d.id})"></i><i class="fas fa-trash" style="cursor:pointer;color:#e74c3c" onclick="ddoc(${d.id})"></i></td></tr>`)}); }
+function rDoctors(){fetch(API+'/doctors?t='+Date.now()).then(r=>r.json()).then(ds=>{DOCTORS=ds;const tb=document.getElementById('doc-body');if(!tb)return;tb.innerHTML='';if(!ds.length){tb.innerHTML='<tr><td colspan="5" style=\"text-align:center;color:var(--dim)">No doctor records.</td></tr>';return;}ds.forEach(d=>tb.innerHTML+=`<tr><td>${d.name}</td><td>${d.specialty}</td><td>${d.hospital}</td><td>${d.phone}</td><td style="text-align:right"><i class="fas fa-edit" style="cursor:pointer;color:var(--acc);margin-right:10px" onclick="edoc(${d.id})"></i><i class="fas fa-trash" style="cursor:pointer;color:#e74c3c" onclick="ddoc(${d.id})"></i></td></tr>`)}); }
 
 function loadShelves(){
   fetch(API+'/shelves?t='+Date.now()).then(r=>r.json()).then(rows=>{
@@ -1598,7 +1570,7 @@ function loadShelves(){
     if(!tb)return;
     tb.innerHTML='';
     if(!SHELVES.length){
-      tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--dim)">No shelf locations.</td></tr>';
+      tb.innerHTML='<tr><td colspan="6" style=\"text-align:center;color:var(--dim)">No shelf locations.</td></tr>';
       return;
     }
     tb.innerHTML=SHELVES.map(s=>`<tr><td>${s.name}</td><td style="font-size:11px;color:var(--mt)">${[s.aisle&&`Aisle ${s.aisle}`,s.rack&&`Rack ${s.rack}`,s.shelf&&`Shelf ${s.shelf}`,s.bin&&`Bin ${s.bin}`].filter(Boolean).join(' / ')||'—'}</td><td>${s.notes||'—'}</td><td><span class="bx ${s.status==='Active'?'bg':'bo'}">${s.status}</span></td><td>${s.medicine_count||0}</td><td style="text-align:right"><i class="fas fa-edit" style="cursor:pointer;color:var(--acc);margin-right:10px" onclick="eshelf(${s.id})"></i><i class="fas fa-trash" style="cursor:pointer;color:#e74c3c" onclick="dshelf(${s.id})"></i></td></tr>`).join('');
@@ -1722,7 +1694,7 @@ window.sendFreeWa = function(id) {
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
 };
 
-function renderUtils(){const tbody=document.getElementById('util-bills-body');if(!tbody)return;if(!allBills.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--dim)">No bills generated yet.</td></tr>';return;}tbody.innerHTML='';allBills.slice().reverse().forEach((b)=>{const itemsTxt=(b.items&&b.items.length)?b.items.map(i=>i.n).join(', '):'—';const rxf=b.prescription?`<button class="btn btn-out" style="padding:4px 10px;font-size:10px;border-color:var(--acc);color:var(--acc);background:rgba(245,166,35,0.05)" onclick="v_rx('${b.id}')"><i class="fas fa-eye"></i> View Prescription</button>`:'<span style="color:var(--dim);font-size:11px;opacity:0.5">—</span>';tbody.innerHTML+=`<tr>
+function renderUtils(){const tbody=document.getElementById('util-bills-body');if(!tbody)return;if(!allBills.length){tbody.innerHTML='<tr><td colspan="9" style=\"text-align:center;color:var(--dim)">No bills generated yet.</td></tr>';return;}tbody.innerHTML='';allBills.slice().reverse().forEach((b)=>{const itemsTxt=(b.items&&b.items.length)?b.items.map(i=>i.n).join(', '):'—';const rxf=b.prescription?`<button class="btn btn-out" style="padding:4px 10px;font-size:10px;border-color:var(--acc);color:var(--acc);background:rgba(245,166,35,0.05)" onclick="v_rx('${b.id}')"><i class="fas fa-eye"></i> View Prescription</button>`:'<span style="color:var(--dim);font-size:11px;opacity:0.5">—</span>';tbody.innerHTML+=`<tr>
 <td style="vertical-align:middle"><span class="bx bo">#${b.id}</span></td>
 <td style="vertical-align:middle;font-size:12px">${b.date}</td>
 <td style="vertical-align:middle;font-weight:500">${b.cust}</td>
@@ -1912,7 +1884,7 @@ function pb2(){
     rKpis();
     loadInventory();
     rMasters();
-    if(typeof refreshSmsCenter === 'function') refreshSmsCenter();
+
     rxBase64='';
     editingBillId='';
     const btn=document.getElementById('btn-rx'), prev=document.getElementById('rx-preview');
@@ -2134,8 +2106,8 @@ function normalizeMedName(t){
 function renderPurchaseImportPreview(){
   const tb=document.getElementById('pur-import-preview');
   if(!tb)return;
-  if(!purchaseImportRows.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--dim)">No Excel parsed yet.</td></tr>';return;}
-  tb.innerHTML=purchaseImportRows.slice(0,200).map(r=>`<tr><td>${r.name}</td><td>${r.qty}</td><td>₹${r.price.toFixed(2)}</td><td>${r.batch||'—'}</td><td>${r.expiry||'—'}</td></tr>`).join('');
+  if(!purchaseImportRows.length){tb.innerHTML='<tr><td colspan="5" style=\"text-align:center;color:var(--dim)">No Excel parsed yet.</td></tr>';return;}
+  tb.innerHTML=purchaseImportRows.slice(0,200).map(r=>`<tr><td>${r.name}</td><td>${r.qty}</td><td>₹${r.prate.toFixed(2)}</td><td>${r.batch||'—'}</td><td>${r.expiry||'—'}</td></tr>`).join('');
 }
 
 function parsePurchaseExcel(){
@@ -2152,18 +2124,38 @@ function parsePurchaseExcel(){
       const hd=rows[0].map(x=>String(x).toLowerCase().trim());
       const idx=(...alts)=>hd.findIndex(h=>alts.includes(h));
       const iName=idx('medicine','item','product','name');
+      const iGeneric=idx('generic','genericname','generic_name');
+      const iCat=idx('category','type');
+      const iShelf=idx('shelf','location','rack');
       const iQty=idx('qty','quantity','stock','units','strips');
-      const iPrice=idx('mrp','price','rate','ptr','amount');
+      const iMrp=idx('mrp','price','selling_price','mrp_price');
+      const iPrate=idx('prate','purchase_rate','ptr','rate','p_rate','cost','amount');
       const iBatch=idx('batch','batchno','batch_no');
       const iExp=idx('exp','expiry','expirydate','expiry_date');
-      if(iName<0||iQty<0){alert('Required columns missing: medicine/item and qty/stock');return;}
+      const iPPak=idx('p_packing','purchase_packing','purchasepacking');
+      const iSPak=idx('s_packing','sales_packing','salespacking','packing');
+      const iPgst=idx('p_gst','purchase_gst','purchasegst','gst');
+      const iSgst=idx('s_gst','sales_gst','salesgst');
+      const iDisc=idx('disc','discount');
+      const iOffer=idx('offer');
+      if(iName<0){alert('Required columns missing: medicine/item');return;}
       purchaseImportRows=rows.slice(1).map(r=>({
         name:String(r[iName]||'').trim(),
-        qty:Math.max(0,parseInt(r[iQty],10)||0),
-        price:iPrice>=0?(parseFloat(r[iPrice])||0):0,
+        generic:iGeneric>=0?String(r[iGeneric]||'').trim():'',
+        category:iCat>=0?String(r[iCat]||'').trim():'',
+        shelf:iShelf>=0?String(r[iShelf]||'').trim():'',
+        qty:iQty>=0?Math.max(0,parseInt(r[iQty],10)||0):0,
+        mrp:iMrp>=0?(parseFloat(r[iMrp])||0):0,
+        prate:iPrate>=0?(parseFloat(r[iPrate])||0):0,
         batch:iBatch>=0?String(r[iBatch]||'').trim():'',
-        expiry:iExp>=0?String(r[iExp]||'').trim():''
-      })).filter(x=>x.name&&x.qty>0);
+        expiry:iExp>=0?String(r[iExp]||'').trim():'',
+        p_packing:iPPak>=0?String(r[iPPak]||'').trim():'',
+        s_packing:iSPak>=0?String(r[iSPak]||'').trim():'',
+        p_gst:iPgst>=0?(parseFloat(r[iPgst])||12):12,
+        s_gst:iSgst>=0?(parseFloat(r[iSgst])||12):12,
+        disc:iDisc>=0?(parseFloat(r[iDisc])||0):0,
+        offer:iOffer>=0?String(r[iOffer]||'').trim():''
+      })).filter(x=>x.name);
       renderPurchaseImportPreview();
       alert(`Parsed ${purchaseImportRows.length} rows.`);
     }catch(err){
@@ -2179,17 +2171,46 @@ function importPurchaseExcelToInventory(){
   const reqs=[];
   let amount=0;
   purchaseImportRows.forEach((r,ix)=>{
-    amount += (r.price||0) * r.qty;
+    amount += (r.prate||r.mrp||0) * r.qty;
     const found=MEDS.find(m=>normalizeMedName(m.n)===normalizeMedName(r.name));
     let payload;
     if(found){
-      payload={...found,s:(parseInt(found.s,10)||0)+r.qty,batch:r.batch||found.batch,expiry:r.expiry||found.expiry,p:r.price>0?r.price:found.p,p_rate:r.price>0?r.price:found.p_rate};
+      payload={...found,
+               s:r.qty, add_stock_mode:true,
+               batch:r.batch||found.batch,
+               expiry:r.expiry||found.expiry,
+               p:r.mrp>0?r.mrp:found.p,
+               p_rate:r.prate>0?r.prate:(r.mrp>0?r.mrp:found.p_rate),
+               g:r.generic||found.g,
+               c:r.category||found.c,
+               shelf_id:r.shelf||found.shelf_id,
+               p_packing:r.p_packing||found.p_packing,
+               s_packing:r.s_packing||found.s_packing,
+               p_gst:r.p_gst||found.p_gst,
+               s_gst:r.s_gst||found.s_gst,
+               disc:r.disc||found.disc,
+               offer:r.offer||found.offer
+               };
     }else{
       payload={
-        id:'m_'+Date.now()+'_'+ix,
-        n:r.name,g:'Generic',c:'Tablet',
-        p:r.price>0?r.price:1,s:r.qty,batch:r.batch||'',expiry:r.expiry||'',
-        p_rate:r.price>0?r.price:0,p_packing:'',s_packing:'',p_gst:12,s_gst:12,disc:0,offer:'',reorder:10,max_qty:200
+        id:'I-'+Math.random().toString(36).substring(2, 9).toUpperCase(),
+        n:r.name,
+        g:r.generic||'Generic',
+        c:r.category||'Tablet',
+        p:r.mrp>0?r.mrp:(r.prate>0?r.prate:1),
+        s:r.qty,
+        batch:r.batch||'',
+        expiry:r.expiry||'',
+        p_rate:r.prate>0?r.prate:(r.mrp>0?r.mrp:0),
+        p_packing:r.p_packing||'',
+        s_packing:r.s_packing||'',
+        p_gst:r.p_gst||12,
+        s_gst:r.s_gst||12,
+        disc:r.disc||0,
+        offer:r.offer||'',
+        reorder:10,
+        max_qty:200,
+        shelf_id:r.shelf||''
       };
     }
     reqs.push(fetch(API+'/medicines',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}));
@@ -2212,6 +2233,7 @@ function importPurchaseExcelToInventory(){
   }).catch(err=>alert('Import error: '+err.message));
 }
 
+
 function addConnectorSite(){
   const n=document.getElementById('site-name')?.value.trim();
   const c=document.getElementById('site-catalog')?.value.trim();
@@ -2232,7 +2254,7 @@ function removeConnectorSite(id){
 function renderConnectorSites(){
   const tb=document.getElementById('site-body');
   if(!tb)return;
-  if(!connectorSites.length){tb.innerHTML='<tr><td colspan="3" style="text-align:center;color:var(--dim)">No sites configured.</td></tr>';return;}
+  if(!connectorSites.length){tb.innerHTML='<tr><td colspan="3" style=\"text-align:center;color:var(--dim)">No sites configured.</td></tr>';return;}
   tb.innerHTML=connectorSites.map(s=>`<tr><td>${s.name}</td><td style="font-size:11px;color:var(--mt)">${(s.catalog||[]).join(', ')}</td><td style="text-align:right"><button class="btn btn-r" style="padding:4px 8px" onclick="removeConnectorSite('${s.id}')">Delete</button></td></tr>`).join('');
 }
 
@@ -2277,7 +2299,7 @@ function generateWantedList(){
   }).sort((a,b)=>b.wanted-a.wanted);
   const tb=document.getElementById('ro-body');
   if(!tb)return;
-  if(!wantedRows.length){tb.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--dim)">No inventory data.</td></tr>';return;}
+  if(!wantedRows.length){tb.innerHTML='<tr><td colspan="9" style=\"text-align:center;color:var(--dim)">No inventory data.</td></tr>';return;}
   tb.innerHTML=wantedRows.map(r=>`<tr><td>${r.name}</td><td>${r.shelf}</td><td>${r.stock}</td><td>${r.minPoint}</td><td>${r.avg.toFixed(2)}</td><td>${r.forecast}</td><td style="font-weight:700;color:${r.wanted>0?'#f5a623':'#22c55e'}">${r.wanted}</td><td>${r.site}</td><td>${r.wanted>0?'<span class="bx br">REORDER</span>':'<span class="bx bg">OK</span>'}</td></tr>`).join('');
 }
 
@@ -2326,7 +2348,7 @@ window.onload = () => {
       if(typeof rItems === 'function') rItems(ms);
       if(typeof generateWantedList==='function')generateWantedList();
   }).catch(e=>console.log(e));
-  setTimeout(() => { if(typeof refreshSmsCenter === 'function') refreshSmsCenter(); }, 1000);
+
 
   // Customer Sync
   document.getElementById('cn').addEventListener('input', e => {
@@ -2338,230 +2360,12 @@ window.onload = () => {
     if(c) document.getElementById('cn').value=c.name;
   });
 
-  // Refresh heartbeat
   setInterval(() => {
     if(typeof rKpis === 'function') rKpis();
     if(typeof loadInventory === 'function') loadInventory();
   }, 5000);
 };
 
-let SMS_MESSAGES=[];
-let SMS_TEMPLATES=[];
-
-function smsTimeLabel(ts){
-  if(!ts)return '—';
-  const d=new Date(Number(ts));
-  return Number.isNaN(d.getTime())?'—':`${pd(d.getDate())}/${pd(d.getMonth()+1)} ${pd(d.getHours())}:${pd(d.getMinutes())}`;
-}
-
-function smsStatusClass(status){
-  const s=String(status||'').toLowerCase();
-  if(['sent','delivered','queued','pending','sending'].includes(s))return 'bg';
-  if(['failed','error'].includes(s))return 'br';
-  return 'bo';
-}
-
-function smsTemplateById(id){return SMS_TEMPLATES.find(t=>String(t.id)===String(id));}
-function smsCustomerById(id){return CUSTOMERS.find(c=>String(c.id)===String(id));}
-function smsBillById(id){return allBills.find(b=>String(b.id)===String(id))||null;}
-
-function smsDraftContext(){
-  const customerId=document.getElementById('sms-customer')?.value||'';
-  const customer=smsCustomerById(customerId);
-  const phone=document.getElementById('sms-phone')?.value.trim()||customer?.phone||document.getElementById('cp')?.value.trim()||'';
-  const billId=document.getElementById('sms-bill')?.value.trim()||'';
-  const bill=smsBillById(billId);
-  return {
-    recipient_phone: phone,
-    customer_id: customer?.id||'',
-    customer_name: customer?.name||document.getElementById('cn')?.value.trim()||'',
-    bill_id: billId,
-    bill_total: bill?.total||'',
-    bill_date: bill?.date||'',
-    item_name: bill?.items?.[0]?.n||'',
-    stock_qty: bill?.items?.[0]?.qty||'',
-    due_amount: bill?.total||'',
-    store_name: 'Selvam Medicals'
-  };
-}
-
-function smsRenderTemplate(body, ctx){
-  return String(body||'').replace(/\{(\w+)\}/g,(_,key)=>ctx[key]===undefined||ctx[key]===null?'':String(ctx[key]));
-}
-
-function renderSmsRecipients(){
-  const sel=document.getElementById('sms-customer');
-  if(!sel)return;
-  const current=sel.value;
-  sel.innerHTML='<option value="">Select customer</option>'+CUSTOMERS.map(c=>`<option value="${c.id}">${c.name} · ${c.phone}</option>`).join('');
-  sel.value=current;
-}
-
-function renderSmsTemplates(){
-  const sel=document.getElementById('sms-template');
-  if(!sel)return;
-  const current=sel.value;
-  sel.innerHTML='<option value="">Custom Message</option>'+SMS_TEMPLATES.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
-  sel.value=current;
-}
-
-function renderSmsHistory(){
-  const tb=document.getElementById('sms-history-body');
-  if(!tb)return;
-  if(!SMS_MESSAGES.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--dim)">No SMS messages yet.</td></tr>';return;}
-  tb.innerHTML=SMS_MESSAGES.map(m=>{
-    const preview=(m.body||'').length>70?m.body.slice(0,67)+'...':(m.body||'');
-    return `<tr>
-      <td><div style="font-weight:600">${m.recipient_phone||'—'}</div><div style="font-size:10px;color:var(--mt)">${m.customer_name||'Walk-in'}</div></td>
-      <td>${m.template_id?((smsTemplateById(m.template_id)||{}).name||m.message_type||'Template'):(m.message_type||'Custom')}</td>
-      <td style="font-size:11px;color:var(--mt);max-width:280px">${preview||'—'}</td>
-      <td><span class="bx ${smsStatusClass(m.send_status)}">${m.send_status||'queued'}</span>${m.failure_reason?`<div style="font-size:10px;color:#ef4444;margin-top:4px;max-width:180px">${m.failure_reason}</div>`:''}</td>
-      <td style="font-size:11px">${smsTimeLabel(m.sent_ts||m.updated_ts||m.created_ts)}</td>
-      <td style="text-align:right"><button class="btn btn-out" style="padding:4px 8px;font-size:10px" onclick="retrySmsMessage('${m.id}')">Retry</button></td>
-    </tr>`;
-  }).join('');
-}
-
-function smsPickCustomer(customerId){
-  const customer=smsCustomerById(customerId);
-  const phone=document.getElementById('sms-phone');
-  if(phone)phone.value=customer?.phone||'';
-}
-
-function smsApplyTemplate(templateId){
-  const template=smsTemplateById(templateId);
-  const bodyEl=document.getElementById('sms-compose-body');
-  if(!bodyEl)return;
-  bodyEl.value=template?smsRenderTemplate(template.body, smsDraftContext()):'';
-}
-
-function smsQuickTemplate(mode){
-  const template=SMS_TEMPLATES.find(t=>t.message_type===mode)||smsTemplateById(mode);
-  const templateSel=document.getElementById('sms-template');
-  if(templateSel)templateSel.value=template?template.id:'';
-  const bodyEl=document.getElementById('sms-compose-body');
-  if(bodyEl)bodyEl.value=template?smsRenderTemplate(template.body, smsDraftContext()):'';
-}
-
-function smsFillFromBill(bill){
-  const phone=document.getElementById('sms-phone');
-  const cust=document.getElementById('sms-customer');
-  const billEl=document.getElementById('sms-bill');
-  if(phone)phone.value=bill?.phone||'';
-  if(cust){
-    const match=CUSTOMERS.find(x=>x.phone===bill?.phone||x.name===bill?.cust);
-    cust.value=match?String(match.id):'';
-  }
-  if(billEl)billEl.value=bill?.id||'';
-  const template=SMS_TEMPLATES.find(t=>t.message_type==='bill_ready')||smsTemplateById('tpl-bill-ready');
-  const templateSel=document.getElementById('sms-template');
-  if(templateSel)templateSel.value=template?template.id:'';
-  const bodyEl=document.getElementById('sms-compose-body');
-  if(bodyEl&&template){
-    bodyEl.value=smsRenderTemplate(template.body,{
-      ...smsDraftContext(),
-      bill_id: bill?.id||'',
-      bill_total: bill?.total||'',
-      bill_date: bill?.date||'',
-      customer_name: bill?.cust||document.getElementById('cn')?.value.trim()||'',
-      recipient_phone: bill?.phone||document.getElementById('cp')?.value.trim()||''
-    });
-  }
-}
-
-function openSmsForCustomer(customerId){
-  const customer=smsCustomerById(customerId);
-  sw('sms',document.querySelector('.ni[data-panel="sms"]'));
-  refreshSmsCenter().then(()=>{
-    if(customer){
-      const custSel=document.getElementById('sms-customer');
-      const phone=document.getElementById('sms-phone');
-      if(custSel)custSel.value=String(customer.id);
-      if(phone)phone.value=customer.phone||'';
-      const billEl=document.getElementById('sms-bill');
-      if(billEl)billEl.value='';
-      smsQuickTemplate('reminder');
-    }
-  });
-}
-
-function openSmsForBill(billId){
-  sw('sms',document.querySelector('.ni[data-panel="sms"]'));
-  const bill=smsBillById(billId);
-  refreshSmsCenter().then(()=>{ if(bill)smsFillFromBill(bill); });
-}
-
-function openSmsDraftFromBill(){
-  sw('sms',document.querySelector('.ni[data-panel="sms"]'));
-  const draft={
-    id: nextBillNo(),
-    cust: document.getElementById('cn')?.value.trim()||'',
-    phone: document.getElementById('cp')?.value.trim()||'',
-    total: parseFloat((document.getElementById('ttv')?.textContent||'0').replace(/[^\d.]/g,''))||0,
-    date: new Date().toLocaleDateString()
-  };
-  refreshSmsCenter().then(()=>smsFillFromBill(draft));
-}
-
-function refreshSmsCenter(){
-  const status=document.getElementById('sms-sync-state');
-  if(status)status.textContent='Loading...';
-  return Promise.all([
-    fetch(API+'/sms/templates?t='+Date.now()).then(r=>r.json()),
-    fetch(API+'/sms/messages?t='+Date.now()).then(r=>r.json())
-  ]).then(([templates,messages])=>{
-    SMS_TEMPLATES=templates||[];
-    SMS_MESSAGES=messages||[];
-    renderSmsRecipients();
-    renderSmsTemplates();
-    renderSmsHistory();
-    if(status)status.textContent=`${SMS_MESSAGES.length} message(s)`;
-  }).catch(err=>{
-    if(status)status.textContent='SMS load failed';
-    console.log('SMS load failed', err);
-  });
-}
-
-function sendSmsMessage(){
-  const recipient_phone=document.getElementById('sms-phone')?.value.trim()||'';
-  const customerId=document.getElementById('sms-customer')?.value||'';
-  const customer=smsCustomerById(customerId);
-  const body=document.getElementById('sms-compose-body')?.value.trim()||'';
-  const templateId=document.getElementById('sms-template')?.value||'';
-  const billId=document.getElementById('sms-bill')?.value.trim()||'';
-  if(!recipient_phone){alert('Enter a recipient phone number.');return;}
-  if(!body){alert('Enter a message body or choose a template.');return;}
-  const template=smsTemplateById(templateId);
-  const payload={
-    recipient_phone,
-    customer_id: customerId,
-    customer_name: customer?.name||document.getElementById('cn')?.value.trim()||'',
-    bill_id: billId,
-    template_id: templateId,
-    message_type: template?.message_type || (billId ? 'bill_ready' : 'custom'),
-    body,
-    source: 'dashboard',
-    auto_send: true
-  };
-  fetch(API+'/sms/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
-    .then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.message||'Failed to send SMS')});return r.json();})
-    .then(msg=>{
-      SMS_MESSAGES=[msg,...SMS_MESSAGES.filter(x=>x.id!==msg.id)];
-      renderSmsHistory();
-      alert(`SMS ${msg.send_status||'queued'}.`);
-    })
-    .catch(err=>alert('SMS send failed: '+err.message));
-}
-
-function retrySmsMessage(messageId){
-  fetch(API+`/sms/messages/${messageId}/retry`,{method:'POST'})
-    .then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.message||'Retry failed')});return r.json();})
-    .then(msg=>{
-      SMS_MESSAGES=SMS_MESSAGES.map(x=>x.id===msg.id?msg:x);
-      renderSmsHistory();
-    })
-    .catch(err=>alert('Retry failed: '+err.message));
-}
 
 function openLedger(customerId) {
   document.getElementById('ledger-mod').style.display='flex';
@@ -2576,7 +2380,7 @@ function rLedger(customerId) {
   tb.innerHTML = '<tr><td colspan="5" style="text-align:center">Loading...</td></tr>';
   fetch(API+'/customers/'+customerId+'/ledger?t='+Date.now()).then(r=>r.json()).then(rows=>{
       if(!rows.length) {
-          tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--dim)">No ledger entries.</td></tr>';
+          tb.innerHTML = '<tr><td colspan="5" style=\"text-align:center;color:var(--dim)">No ledger entries.</td></tr>';
           return;
       }
       tb.innerHTML = rows.map(r=>`<tr><td>${new Date(r.date).toLocaleString()}</td><td>${r.ref_type} - ${r.description}</td><td style="color:#ef4444">${r.debit>0?r.debit.toFixed(2):'-'}</td><td style="color:#22c55e">${r.credit>0?r.credit.toFixed(2):'-'}</td><td style="font-weight:600">₹${r.balance.toFixed(2)}</td></tr>`).join('');
@@ -2684,7 +2488,7 @@ function rGstRep() {
         <td>${x.voucher_no || '—'}</td>
         <td style="text-align:right"><button class="btn btn-out" style="padding:4px 8px;font-size:10px" onclick="deleteExpense(${x.id})"><i class="fas fa-trash"></i></button></td>
         </tr>
-      `).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--dim)">No expenses recorded.</td></tr>';
+      `).join('') : '<tr><td colspan="5" style=\"text-align:center;color:var(--dim)">No expenses recorded.</td></tr>';
 
       const payBody = document.getElementById('payable-body');
       payBody.innerHTML = payables.length ? payables.map(x => `
@@ -2694,7 +2498,7 @@ function rGstRep() {
         <td>₹${(x.payments||0).toFixed(2)}</td>
         <td style="text-align:right"><button class="btn btn-out" style="padding:4px 8px;font-size:10px" onclick="recordSupplierPayment(${x.supplier_id}, '${x.supplier_name.replace(/'/g, "\\'")}')"><i class="fas fa-rupee-sign"></i></button></td>
         </tr>
-      `).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--dim)">No suppliers found.</td></tr>';
+      `).join('') : '<tr><td colspan="4" style=\"text-align:center;color:var(--dim)">No suppliers found.</td></tr>';
 
       const salesBody = document.getElementById('daily-sales-body');
       salesBody.innerHTML = (summary.daily_sales||[]).length ? summary.daily_sales.map(x => `
@@ -2704,7 +2508,7 @@ function rGstRep() {
         <td>₹${(x.gross_sales||0).toFixed(2)}</td>
         <td>₹${(x.net_sales||0).toFixed(2)}</td>
         </tr>
-      `).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--dim)">No sales in this range.</td></tr>';
+      `).join('') : '<tr><td colspan="4" style=\"text-align:center;color:var(--dim)">No sales in this range.</td></tr>';
     }
 
     async function loadFinancePanel(){
@@ -2937,7 +2741,7 @@ async function rInsights() {
                 </td>
                 <td style="text-align:right;font-weight:700;color:var(--tx);font-size:14px;padding-top:14px">${i.quantity} <span style="font-size:10px;color:var(--dim);font-weight:400">units</span></td>
             </tr>
-        `).join('') || '<tr><td colspan="2" style="text-align:center;padding:40px">No data</td></tr>';
+        `).join('') || '<tr><td colspan="2" style=\"text-align:center;padding:40px">No data</td></tr>';
 
         // Market Basket with affinity tags
         const basketBody = document.getElementById('basket-body');
@@ -2952,7 +2756,7 @@ async function rInsights() {
                 </td>
                 <td style="text-align:right;padding:14px"><span class="hold-chip" style="background:#22c55e20;color:#22c55e;border:none;padding:4px 10px;font-weight:700">${b.frequency} Matches</span></td>
             </tr>
-        `).join('') || '<tr><td colspan="3" style="text-align:center;padding:40px">No patterns found</td></tr>';
+        `).join('') || '<tr><td colspan="3" style=\"text-align:center;padding:40px">No patterns found</td></tr>';
 
         // Churn Risk with "Action" buttons
         const churnBody = document.getElementById('churn-body');
@@ -2966,13 +2770,42 @@ async function rInsights() {
                     <div style="font-weight:600">₹${c.total_spend.toLocaleString()}</div>
                     <div style="font-size:10px;color:#ef4444">${c.days_since_last_visit} days ago</div>
                 </td>
-                <td style="text-align:right;padding:14px"><button class="btn btn-out" style="padding:5px 10px;font-size:10px" onclick="sw('sms')">Notify</button></td>
             </tr>
-        `).join('') || '<tr><td colspan="3" style="text-align:center;padding:40px">No high-risk customers</td></tr>';
+        `).join('') || '<tr><td colspan="3" style=\"text-align:center;padding:40px">No high-risk customers</td></tr>';
+
+        // Refill Reminders
+        const refillBody = document.getElementById('refill-body');
+        if (refillBody) {
+            refillBody.innerHTML = (data.refill_reminders || []).map(r => `
+                <tr>
+                    <td style="padding:14px">
+                        <div style="font-weight:600">${r.customer_name}</div>
+                        <div style="font-size:11px;color:var(--mt)">${r.phone}</div>
+                    </td>
+                    <td style="padding:14px">
+                        <div style="font-weight:600">${r.item_name}</div>
+                        <div style="font-size:10px;color:${r.days_remaining < 0 ? '#ef4444' : '#f5a623'}">
+                            ${r.days_remaining < 0 ? 'Overdue by ' + Math.abs(r.days_remaining) : 'Due in ' + r.days_remaining} days
+                        </div>
+                    </td>
+                    <td style="text-align:right;padding:14px">
+                        <button class="btn btn-out" style="padding:4px 8px;border-color:#22c55e;color:#22c55e" onclick="sendRefillReminder('${r.customer_name}', '${r.phone}', '${r.item_name}')">
+                            <i class="fab fa-whatsapp"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('') || '<tr><td colspan="3" style=\"text-align:center;padding:40px;color:var(--dim)">No refills due soon</td></tr>';
+        }
 
     } catch (e) {
         console.error('Analytics load failed:', e);
     }
+}
+
+function sendRefillReminder(name, phone, item) {
+    const msg = `Hello ${name}, this is a friendly reminder from Selvam Medicals. Your monthly supply of ${item} is about to finish. Would you like us to keep your refill ready for you?`;
+    const url = `https://wa.me/91${phone}?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank');
 }
 
 function toggleDataset(index, btn) {
@@ -3002,6 +2835,62 @@ sw = function(k, el) {
     oldSw(k, el);
     if(k === 'insights') rInsights();
 };
+function dnWaste(){
+    fetch(API+"/inventory/adjustments").then(res=>res.json()).then(data=>{
+        let csv="Date,Item,Batch,Qty,Reason,Remarks\n";
+        data.forEach(a=>csv+=`"${a.date}","${a.item}","${a.batch}","${a.qty}","${a.reason}","${a.remarks}"\n`);
+        const blob=new Blob([csv],{type:"text/csv"}), url=window.URL.createObjectURL(blob), a=document.createElement("a");
+        a.href=url; a.download="Waste_Damage_Logs.csv"; a.click();
+    });
+}
+function rWasteRep(){
+    const m=document.getElementById("rep-mod"), t=document.getElementById("rep-title"), c=document.getElementById("rep-content"), pb=document.getElementById("rep-print-btn");
+    t.textContent="Damage & Waste Analysis";
+    if(pb)pb.style.display="none";
+    fetch(API+"/inventory/adjustments").then(res=>res.json()).then(data=>{
+        let rows=data.map(a=>`<tr><td>${a.date}</td><td>${a.item}</td><td>${a.batch}</td><td style="color:#ef4444;font-weight:600">${a.qty}</td><td><span class="bx br">${a.reason}</span></td><td style="font-size:11px;color:var(--mt)">${a.remarks||"—"}</td></tr>`).join("");
+        c.innerHTML=`<div class="tw"><table><thead><tr><th>Date</th><th>Medicine</th><th>Batch</th><th>Qty</th><th>Reason</th><th>Remarks</th></tr></thead><tbody>${rows||"<tr><td colspan='6' style='text-align:center'>No records found.</td></tr>"}</tbody></table></div>`;
+    });
+    m.style.display="flex";
+}
+
+function openWaste(id){
+    const m=MEDS.find(x=>x.id==id);
+    if(!m)return;
+    const mod=document.getElementById('waste-mod');
+    document.getElementById('waste-id').value=m.id;
+    document.getElementById('waste-title').textContent='Record Damage/Waste: '+m.n;
+    const batchSel=document.getElementById('waste-batch');
+    if(m.batches && m.batches.length > 0){
+        batchSel.innerHTML = m.batches.map(b=>`<option value="${b.id}">${b.no} (Stock: ${b.qty})</option>`).join('');
+    } else {
+        batchSel.innerHTML = `<option value="">Default Batch (Stock: ${m.s})</option>`;
+    }
+    mod.style.display='flex';
+}
+
+function saveWaste(){
+    const id=document.getElementById('waste-id').value;
+    const batch_id=document.getElementById('waste-batch').value;
+    const qty=parseInt(document.getElementById('waste-qty').value);
+    const reason=document.getElementById('waste-reason').value;
+    const remarks=document.getElementById('waste-remarks').value;
+    if(!qty || qty <= 0){ alert('Enter valid quantity'); return; }
+    fetch(API+'/inventory/adjust',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ batch_id: batch_id, qty: -qty, reason: reason, remarks: remarks })
+    }).then(res=>res.json()).then(data=>{
+        if(data.status==='success'){
+            document.getElementById('waste-mod').style.display='none';
+            loadInventory();
+            alert('Recorded successfully');
+        } else {
+            alert('Error: '+data.message);
+        }
+    });
+}
+
 </script>
 
 <!-- LEDGER MODAL -->
@@ -3054,6 +2943,31 @@ sw = function(k, el) {
     <div style="margin-top:20px;text-align:right">
         <button class="btn btn-out" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
     </div>
+  </div>
+</div>
+
+<!-- WASTE MODAL -->
+<div id="waste-mod" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center;">
+  <div class="crd fm" style="width:400px;padding:22px;background:var(--card);box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+    <div style="font-size:15px;font-weight:600;margin-bottom:16px;color:#e8ecf4;display:flex;justify-content:space-between;align-items:center;">
+      <span id="waste-title" style="flex:1">Record Damage/Waste</span>
+      <i class="fas fa-xmark" style="cursor:pointer;color:var(--mt)" onclick="document.getElementById('waste-mod').style.display='none'"></i>
+    </div>
+    <input type="hidden" id="waste-id"/>
+    <label>Select Batch</label>
+    <select id="waste-batch" style="width:100%;background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px;color:var(--tx);margin-bottom:10px;"></select>
+    <label>Quantity to Deduct</label>
+    <input type="number" id="waste-qty" placeholder="Units damaged/lost" style="width:100%;background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px;color:var(--tx);margin-bottom:10px;"/>
+    <label>Reason</label>
+    <select id="waste-reason" style="width:100%;background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px;color:var(--tx);margin-bottom:10px;">
+        <option value="DAMAGE">Damage / Broken</option>
+        <option value="EXPIRED">Expired</option>
+        <option value="THEFT">Missing / Theft</option>
+        <option value="CORRECTION">Audit Correction</option>
+    </select>
+    <label>Remarks</label>
+    <textarea id="waste-remarks" rows="3" placeholder="Additional details..." style="width:100%;background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px;color:var(--tx);margin-bottom:15px;"></textarea>
+    <button class="btn btn-acc" style="width:100%;justify-content:center;padding:11px" onclick="saveWaste()"><i class="fas fa-check"></i> Save Adjustment</button>
   </div>
 </div>
 

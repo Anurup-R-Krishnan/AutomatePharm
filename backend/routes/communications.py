@@ -3,7 +3,7 @@ from flask import Blueprint, jsonify, request
 from sqlalchemy import func
 
 from ..extensions import db
-from ..models.system import SmsLog, SystemSetting
+from ..models.system import SystemSetting
 
 communications_bp = Blueprint("communications", __name__)
 
@@ -138,32 +138,4 @@ def delete_template(id):
         return json_error("Failed to delete template", 500, str(err))
 
 
-@communications_bp.route("/api/communications/logs", methods=["GET"])
-def get_logs():
-    bill_id = request.args.get("bill_id")
-    status = request.args.get("status")
 
-    try:
-        query = SmsLog.query
-        if bill_id:
-            query = query.filter(SmsLog.ref_type == "bill", SmsLog.ref_id == int(bill_id))
-        if status:
-            query = query.filter(func.lower(SmsLog.status) == status.lower())
-
-        rows = query.order_by(SmsLog.sms_id.desc()).all()
-        return jsonify(
-            [
-                {
-                    "id": row.sms_id,
-                    "bill_id": str(row.ref_id or ""),
-                    "customer_phone": row.recipient_phone,
-                    "status": row.status,
-                    "message": row.message,
-                    "timestamp": row.created_at.isoformat() + "Z",
-                    "provider_message_id": "",
-                }
-                for row in rows
-            ]
-        )
-    except Exception as err:
-        return json_error("Failed to retrieve communication logs", 500, str(err))
