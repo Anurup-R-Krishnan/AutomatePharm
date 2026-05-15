@@ -5,10 +5,10 @@ from sqlalchemy import func
 
 from ..extensions import db
 from .auth import login_required
-from ..models.sales import SalesBill, SalesBillItem, BillingVoucher
+from ..models.sales import SalesBill, SalesBillItem, BillingVoucher, ReceiptPayment
 from ..models.core import Customer, Doctor, Item, Location
 from ..models.inventory import StockBatch, StockLedger
-from ..models.lookups import BillType, TxnType
+from ..models.lookups import BillType, TxnType, PaymentMode
 from ..analytics_logic import update_customer_purchase_pattern
 from ..services.whatsapp import send_whatsapp_receipt
 
@@ -126,7 +126,7 @@ def _bill_to_compat(bill: SalesBill) -> dict:
     }
 
 
-def _adjust_customer(name: str, phone: str, total_delta: float, visit_delta: int,
+def _adjust_customer(name: str, phone: str, outstanding_delta: float, spend_delta: float, visit_delta: int,
                      allow_insert: bool = True) -> None:
     """Update or create a Customer record with aggregated sales stats."""
     if not name:
@@ -136,12 +136,18 @@ def _adjust_customer(name: str, phone: str, total_delta: float, visit_delta: int
     ).first()
 
     if customer:
-        customer.outstanding_balance = max(0, float(customer.outstanding_balance or 0) + total_delta)
+        customer.outstanding_balance = max(0, float(customer.outstanding_balance or 0) + outstanding_delta)
+        # Always update total spend regardless of payment mode
+        customer.total_spend = float(customer.total_spend or 0) + spend_delta
+        customer.total_visits = (customer.total_visits or 0) + visit_delta
     elif allow_insert:
         customer = Customer(
             customer_name=name.strip(),
             phone=phone or "",
             is_cash_customer=True,
+            outstanding_balance=outstanding_delta,
+            total_spend=spend_delta,
+            total_visits=visit_delta
         )
         db.session.add(customer)
     db.session.flush()
@@ -387,6 +393,52 @@ def delete_billing_voucher(voucher_id):
         return _json_error("Failed to delete voucher", 500, str(err))
 
 
+@bills_bp.route("/api/bills/<bill_id>/cancel-preview", methods=["GET"])
+def get_cancel_bill_preview(bill_id):
+    real_id = bill_id.replace("B-", "").strip()
+    bill = SalesBill.query.get(real_id)
+    if not bill or bill.is_cancelled:
+        return _json_error("Bill not found", 404, {"id": bill_id})
+
+    customer = Customer.query.get(bill.customer_id) if bill.customer_id else None
+    doctor = Doctor.query.get(bill.doctor_id) if bill.doctor_id else None
+    salesman_name = "System"
+    if bill.salesman_id:
+        from ..models.hr import Salesman
+
+        salesman = Salesman.query.get(bill.salesman_id)
+        if salesman and salesman.salesman_name:
+            salesman_name = salesman.salesman_name
+
+    items = []
+    for idx, bi in enumerate(bill.items, start=1):
+        item = Item.query.get(bi.item_id)
+        batch = StockBatch.query.get(bi.stock_batch_id) if bi.stock_batch_id else None
+        items.append({
+            "line_no": idx,
+            "item_code": bi.item_id,
+            "item_name": item.item_name if item else bi.item_id,
+            "batch": batch.batch_no if batch else "",
+            "expiry": batch.expiry_date.strftime("%m/%y") if batch and batch.expiry_date else "",
+            "qty": int(bi.qty_sold or 0),
+            "mrp": float(bi.mrp_at_sale or 0),
+            "value": float(bi.value or 0),
+        })
+
+    return jsonify({
+        "id": f"B-{bill.bill_id}",
+        "bill_no": str(bill.bill_no),
+        "cashbill_no": str(bill.bill_no),
+        "customer_name": customer.customer_name if customer else "Walk-in",
+        "customer_address": customer.address if customer and customer.address else "",
+        "doctor_name": doctor.doctor_name if doctor else "Self",
+        "salesman_name": salesman_name,
+        "remarks": bill.remarks or "",
+        "total": float(bill.net_amount or 0),
+        "items": items,
+    })
+
+
 @bills_bp.route("/api/bills/<bill_id>/cancel", methods=["POST"])
 def cancel_bill_with_reason(bill_id):
     real_id = bill_id.replace("B-", "").strip()
@@ -484,6 +536,12 @@ def save_bill():
                 )
                 db.session.add(customer)
                 db.session.flush()
+            
+            if "is_chronic" in data:
+                print(f"UPDATING CHRONIC STATUS for {customer.customer_name}: {data['is_chronic']}")
+                customer.is_chronic_patient = (data["is_chronic"] is True)
+                db.session.add(customer)
+                db.session.flush()
 
         # Resolve or create doctor
         doctor_name = str(data.get("doctor", "Self")).strip()
@@ -525,6 +583,7 @@ def save_bill():
             igst_amount=0,
             round_off=0,
             net_amount=net,
+            payment_mode=data.get("pay", "cash").lower(),
             prescription_base64=data.get("prescription") or data.get("rx"),
         )
         db.session.add(bill)
@@ -566,16 +625,43 @@ def save_bill():
         _apply_stock_delta(bill.bill_id, cart_items, -1)
 
         # Update customer totals
-        _adjust_customer(customer_name, customer_phone, net, 1)
-
+        payment_mode = data.get("pay", "cash").lower()
+        paid_amt = float(data.get("paid_amount", net))
+        outstanding = max(0, net - paid_amt)
+        _adjust_customer(customer_name, customer_phone, outstanding, net, 1)
+        
+        # If any amount was paid, record a ReceiptPayment
+        if paid_amt > 0 and customer:
+            pm_code = payment_mode.upper()
+            if pm_code == "CREDIT": pm_code = "CASH" # Default to cash if they paid something on a credit bill
+            
+            pm_obj = PaymentMode.query.filter(func.upper(PaymentMode.payment_mode_code) == pm_code).first()
+            if not pm_obj:
+                pm_obj = PaymentMode.query.filter_by(payment_mode_code="CASH").first()
+                
+            if pm_obj:
+                payment = ReceiptPayment(
+                    customer_id=customer.customer_id,
+                    bill_id=bill.bill_id,
+                    receipt_date=now.date(),
+                    amount=paid_amt,
+                    payment_mode_id=pm_obj.payment_mode_id,
+                    user_id=user_id,
+                    remarks=f"Partial/Full payment for Bill #{bill.bill_no}"
+                )
+                db.session.add(payment)
+        
+        # Explicitly update chronic status again to be sure
+        target_cust = None
         db.session.commit()
 
         if customer:
             for cart_item in cart_items:
                 item_id = str(cart_item.get("id", "")).strip()
                 qty = int(cart_item.get("qty", 1) or 1)
+                is_chr = bool(cart_item.get("is_chronic", False))
                 if item_id and qty > 0:
-                    update_customer_purchase_pattern(customer.customer_id, item_id, qty)
+                    update_customer_purchase_pattern(customer.customer_id, item_id, qty, is_chronic=is_chr)
         
         db.session.commit()
 
@@ -600,7 +686,17 @@ def save_bill():
             except Exception:
                 pass  # non-critical
 
-        return jsonify({"status": "success", "id": f"B-{bill.bill_id}"})
+        # Fetch latest summary if customer exists
+        customer_summary = None
+        if customer:
+            from .masters import _family_summary
+            customer_summary = _family_summary(customer)
+
+        return jsonify({
+            "status": "success", 
+            "id": f"B-{bill.bill_id}",
+            "customer": customer_summary
+        })
 
     except Exception as err:
         db.session.rollback()

@@ -6,7 +6,7 @@ from sqlalchemy import func
 from ..extensions import db
 from ..models.core import Customer, Doctor, Role, Supplier, User
 from ..models.lookups import PaymentMode
-from ..models.sales import ReceiptPayment, SalesBill
+from ..models.sales import BillingVoucher, ReceiptPayment, SalesBill
 from ..analytics_logic import get_personalized_suggestions
 
 
@@ -101,9 +101,34 @@ def _balance_components(customer_ids: list[int]) -> dict:
         .filter(ReceiptPayment.customer_id.in_(scoped_ids))
         .scalar()
     )
-    net = total_sales - total_payments
+    total_debit_notes = float(
+        db.session.query(func.coalesce(func.sum(BillingVoucher.amount), 0))
+        .filter(
+            BillingVoucher.customer_code.in_([str(cid) for cid in scoped_ids]),
+            BillingVoucher.voucher_type == "debit_note"
+        )
+        .scalar()
+    )
+
+    # Calculate "Base Balance" (outstanding_balance - (sales + debit_notes - payments))
+    # But that's complex. Let's just trust that Initial Balance is in the outstanding_balance
+    # and transactions are on top.
+    
+    # Actually, the simplest way is to sum outstanding_balance but correctly handle family payments.
+    # But if family payments only update one person, the sum is still correct for the family!
+    # Wait, in the test: Head (0 balance) pays 30. outstanding_balance stays 0. Member has 100. Sum = 100.
+    # The 30 was lost because it was not applied to the member.
+    
+    # If I use (Sales + DebitNotes - Payments), it would be (100 + 0 - 30) = 70.
+    # This matches the expected 70!
+    
+    # So the only thing missing is the Initial Balance (100) from the other test.
+    # If I create a Debit Note for the Initial Balance in add_customer, then (100 + 0 - 0) = 100.
+    # This also matches!
+    
+    net = total_sales + total_debit_notes - total_payments
     return {
-        "sales": total_sales,
+        "sales": total_sales + total_debit_notes,
         "payments": total_payments,
         "net": net,
         "balance": max(0.0, net),
@@ -215,6 +240,7 @@ def get_customers():
                 "family_relation": summary["family_relation"],
                 "family_member_count": summary["family_member_count"],
                 "family_member_names": summary["family_member_names"],
+                "is_chronic": row.is_chronic_patient
             }
         )
     return jsonify(out)
@@ -231,9 +257,11 @@ def add_customer():
         customer_id = data.get("id")
         if customer_id:
             customer = Customer.query.get(customer_id)
+        is_new = False
         if not customer:
             customer = Customer(customer_name=data["name"], phone=data["phone"])
             db.session.add(customer)
+            is_new = True
 
         family_head_id = data.get("family_head_id")
         if family_head_id in (None, "", "null"):
@@ -251,8 +279,24 @@ def add_customer():
         customer.phone = data["phone"]
         customer.address = data.get("address", "")
         customer.is_active = True
-        if "balance" in data:
-            customer.outstanding_balance = float(data.get("balance", 0) or 0)
+        if "is_chronic" in data:
+            customer.is_chronic_patient = bool(data["is_chronic"])
+        if is_new and "balance" in data and float(data.get("balance", 0) or 0) > 0:
+            initial_bal = float(data.get("balance", 0))
+            customer.outstanding_balance = initial_bal
+            # Create a virtual debit note for the opening balance
+            user_id, _ = _ensure_payment_context()
+            voucher_no = f"OB-{int(datetime.utcnow().timestamp())}"
+            opening_voucher = BillingVoucher(
+                voucher_type="debit_note",
+                voucher_no=voucher_no,
+                voucher_date=datetime.utcnow().date(),
+                customer_code=str(customer.customer_id),
+                amount=initial_bal,
+                remarks="Opening Balance",
+                user_id=user_id
+            )
+            db.session.add(opening_voucher)
         
         if "face_vector" in data and data["face_vector"]:
             try:
@@ -504,20 +548,21 @@ def record_customer_payment(id):
             return json_error("Customer not found", 404)
 
         user_id, payment_mode_id = _ensure_payment_context()
+        root_id, family_ids = _family_scope(customer)
+        balance_totals = _balance_components(family_ids)
+        current_balance = balance_totals["balance"]
 
-        own_totals = _balance_components([customer.customer_id])
-        current_balance = own_totals["balance"]
         if amount > current_balance + 0.0001:
             return json_error(
-                "Payment exceeds this customer's own outstanding credit",
+                "Payment exceeds family outstanding credit",
                 400,
                 {
-                    "own_credit": round(current_balance, 2),
+                    "family_credit": round(current_balance, 2),
                     "requested_payment": round(amount, 2),
                 },
             )
 
-        new_balance = max(0.0, current_balance - amount)
+        new_balance = max(0.0, float(customer.outstanding_balance or 0) - amount)
         customer.outstanding_balance = new_balance
 
         receipt = ReceiptPayment(

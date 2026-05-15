@@ -44,6 +44,7 @@ class CustomerPurchasePattern(db.Model):
     avg_quantity = db.Column(db.Float, nullable=False, default=0.0)
     last_purchased_date = db.Column(db.Date, nullable=False)
     next_expected_date = db.Column(db.Date)
+    is_chronic = db.Column(db.Boolean, nullable=False, default=False)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     __table_args__ = (

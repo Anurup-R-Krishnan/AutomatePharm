@@ -836,7 +836,9 @@ def test_customer_family_account_flow(client):
 
     family_ledger = client.get(f"/api/customers/{head['id']}/ledger")
     assert family_ledger.status_code == 200
-    ledger_rows = get_json(family_ledger)
+    ledger_body = get_json(family_ledger)
+    assert isinstance(ledger_body, dict)
+    ledger_rows = ledger_body["entries"]
     assert len(ledger_rows) >= 2
     assert any(row["ref_id"] == bill_id for row in ledger_rows)
     assert any("Family payment" in row["description"] for row in ledger_rows)
@@ -1005,7 +1007,10 @@ def test_purchases_and_masters_smoke(client):
 
     customer_ledger = client.get(f"/api/customers/{customer_id}/ledger")
     assert customer_ledger.status_code == 200
-    assert isinstance(get_json(customer_ledger), list)
+    ledger_body = get_json(customer_ledger)
+    assert isinstance(ledger_body, dict)
+    assert "entries" in ledger_body
+    assert isinstance(ledger_body["entries"], list)
 
     payment = client.post(
         f"/api/customers/{customer_id}/payment",

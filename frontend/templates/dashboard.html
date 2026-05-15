@@ -108,6 +108,21 @@
         <div class="dr"><label>Discount</label><input type="number" id="dv" value="0" min="0" oninput="rc()"/><select id="dt" onchange="rc()"><option value="pct">%</option><option value="flat">₹</option></select></div>
         <div class="sr"><span>GST 5%</span><span id="tv">₹0</span></div>
         <div class="sr tot"><span>TOTAL</span><span id="ttv">₹0</span></div>
+        <div class="sr" style="margin-top:12px; padding:10px; background:rgba(34,197,94,0.05); border:1px solid rgba(34,197,94,0.2); border-radius:8px">
+          <div style="display:flex; flex-direction:column; gap:4px; width:100%">
+            <div style="display:flex; justify-content:space-between; align-items:center">
+                <span style="font-size:11px; font-weight:700; color:var(--mt); text-transform:uppercase; letter-spacing:0.5px">Paid Amount</span>
+                <span id="rem-bal-live" style="font-size:11px; color:#ef4444; font-weight:700"></span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px">
+              <span style="font-size:18px; color:#22c55e; font-weight:800">₹</span>
+              <input type="number" id="paid-amt" value="0" step="0.01" 
+                     style="flex:1; background:transparent; border:none; border-bottom:2px solid #22c55e; color:#22c55e; padding:4px 0; font-size:22px; font-weight:800; outline:none" 
+                     oninput="this.dataset.manual='true'; updateLiveBalance()"/>
+            </div>
+            <div style="font-size:10px; color:var(--dim); font-style:italic">Edit if customer is paying only part.</div>
+          </div>
+        </div>
         <div class="pr2">
           <button class="pb sel" id="pm-cash" onclick="sp('cash')">Cash</button>
           <button class="pb" id="pm-upi" onclick="sp('upi')">UPI</button>
@@ -574,7 +589,7 @@
     <!-- Refill Reminders -->
     <div id="sec-refill" class="crd" style="padding:24px; display:flex; flex-direction:column; min-height:360px;">
       <div style="font-size:14px;font-weight:600;margin-bottom:15px;">
-        <i class="fas fa-pills" style="color:#22c55e;margin-right:8px"></i> Upcoming Refill Reminders
+        <i class="fas fa-pills" style="color:#22c55e;margin-right:8px"></i> Upcoming Refill Reminders <span style="font-size:10px; color:var(--mt); margin-left:10px; font-weight:400;">(Chronic Patients Only)</span>
       </div>
       <div style="font-size:11px;color:var(--mt);margin-bottom:12px">Chronic patients due for their monthly medicine.</div>
       <div class="tw" style="flex:1; overflow-y:auto;"><table>
@@ -685,6 +700,10 @@
     <div style="font-size:15px;font-weight:600;margin-bottom:16px;color:#e8ecf4;display:flex;justify-content:space-between;align-items:center;"><span id="cust-title">Add Customer</span><i class="fas fa-xmark" style="cursor:pointer" onclick="document.getElementById('cust-mod').style.display='none'"></i></div>
     <input type="hidden" id="c-id"/><input type="hidden" id="c-face"/>
     <label>Customer Name</label><input type="text" id="c-n"/><label>Phone</label><input type="text" id="c-p"/><label>Address</label><input type="text" id="c-a"/><label>Email</label><input type="text" id="c-e"/><label>Family Head</label><select id="c-fh" style="width:100%;margin-bottom:8px;"><option value="">No family account</option></select><label>Family Relation</label><input type="text" id="c-fr" placeholder="Head / Spouse / Child"/>
+    <div style="display:flex; align-items:center; gap:8px; margin: 10px 0;">
+      <input type="checkbox" id="c-chronic" style="width:16px; height:16px; accent-color:var(--acc);">
+      <label for="c-chronic" style="margin-bottom:0; cursor:pointer; font-size:12px;">Chronic Patient (Refill Reminders)</label>
+    </div>
     <div style=\"text-align:center; margin-bottom: 8px;">
       <video id="c-vid" autoplay playsinline style="width:100%;height:150px;object-fit:cover;display:none;margin-bottom:8px;border-radius:8px;transform:scaleX(-1)"></video>
       <button class="btn btn-out" id="c-btn-scan" style="width:100%;padding:10px;justify-content:center;font-size:11.5px" onclick="enrollFace(event)"><i class="fas fa-camera"></i> Enroll Face Vector</button>
@@ -1167,6 +1186,7 @@ function loadHeldBill(){
   document.getElementById('cust-type').value=h.custType||'customer';
   pm=h.pay||'cash';sp(pm);
   rxBase64=h.prescription||'';
+  document.getElementById('chronic-opt-in').checked = h.is_chronic || false;
   rct();renderHeldBills();
 }
 
@@ -1344,6 +1364,7 @@ function hb(){
     custType:document.getElementById('cust-type').value,
     pay:pm,
     prescription:rxBase64,
+    is_chronic: document.getElementById('chronic-opt-in').checked,
     items:ks.map(k=>({...cart[k]}))
   };
   heldBills.unshift(holdObj);
@@ -1441,7 +1462,8 @@ function fi(q){
 // fm2() handles both now
 
 function at(id){const i=MEDS.find(x=>x.id==id);if(!i)return;if(i.s<=0){alert('Out of stock!');return;}if(cart[id]&&(cart[id].qty>=i.s)){alert('Cannot exceed available stock!');return;}if(cart[id])cart[id].qty++;else cart[id]={...i,qty:1};rct();}
-function rct(){const ca=document.getElementById('ca'),ec=document.getElementById('ec'),bs2=document.getElementById('bs2'),ks=Object.keys(cart);ca.querySelectorAll('.ci2').forEach(x=>x.remove());if(!ks.length){ec.style.display='flex';bs2.style.display='none';return;}ec.style.display='none';ks.forEach(k=>{const i=cart[k];const d=document.createElement('div');d.className='ci2';d.innerHTML='<div class="cn2"><div class="nm">'+i.n+'</div><div class="pr">₹'+i.p+' × '+i.qty+'</div></div><div class="qc"><button class="qb" onclick="cq(\''+k+'\',-1)"><i class="fas fa-minus"></i></button><input type="number" class="qv-in" value="'+i.qty+'" onchange="sq(\''+k+'\',this.value)"/><button class="qb" onclick="cq(\''+k+'\',1)"><i class="fas fa-plus"></i></button></div><span class="ct2">₹'+(i.p*i.qty).toFixed(2)+'</span><span class="cd" onclick="ri(\''+k+'\')"><i class="fas fa-xmark"></i></span>';ca.appendChild(d);});bs2.style.display='block';rc();}
+function rct(){const ca=document.getElementById('ca'),ec=document.getElementById('ec'),bs2=document.getElementById('bs2'),ks=Object.keys(cart);ca.querySelectorAll('.ci2').forEach(x=>x.remove());if(!ks.length){ec.style.display='flex';bs2.style.display='none';return;}ec.style.display='none';ks.forEach(k=>{const i=cart[k];const d=document.createElement('div');d.className='ci2';d.innerHTML='<div class="cn2"><div class="nm">'+i.n+'</div><div class="pr">₹'+i.p+' × '+i.qty+'</div></div><div class="qc"><button class="qb" onclick="cq(\''+k+'\',-1)"><i class="fas fa-minus"></i></button><input type="number" class="qv-in" value="'+i.qty+'" onchange="sq(\''+k+'\',this.value)"/><button class="qb" onclick="cq(\''+k+'\',1)"><i class="fas fa-plus"></i></button></div><div style="display:flex;flex-direction:column;align-items:center;margin:0 12px;padding:4px 6px;background:rgba(34,197,94,0.1);border-radius:6px;border:1px solid rgba(34,197,94,0.2)"><span style="font-size:8px;color:#22c55e;font-weight:700;margin-bottom:2px">CHRONIC</span><input type="checkbox" '+(i.is_chronic?'checked':'')+' onchange="tc(\''+k+'\')" style="width:18px;height:18px;accent-color:#22c55e;cursor:pointer"/></div><span class="ct2">₹'+(i.p*i.qty).toFixed(2)+'</span><span class="cd" onclick="ri(\''+k+'\')"><i class="fas fa-xmark"></i></span>';ca.appendChild(d);});bs2.style.display='block';rc();}
+function tc(id){if(cart[id])cart[id].is_chronic=!cart[id].is_chronic;}
 function cq(id,d){if(!cart[id])return;cart[id].qty+=d;if(cart[id].qty<=0)delete cart[id];rct();}
 function sq(id,v){
   const i=MEDS.find(x=>x.id==id);
@@ -1469,8 +1491,25 @@ function rc(){
   document.getElementById('sv').textContent='₹'+sub.toFixed(2);
   document.getElementById('tv').textContent='₹'+tax.toFixed(2);
   document.getElementById('ttv').textContent='₹'+tot.toFixed(2);
+  const pi = document.getElementById('paid-amt');
+  if(pm !== 'credit' && pi.dataset.manual !== 'true') pi.value = tot.toFixed(2);
+  updateLiveBalance();
 }
-function sp(m){pm=m;['cash','upi','card','credit'].forEach(x=>document.getElementById('pm-'+x).classList.remove('sel'));document.getElementById('pm-'+m).classList.add('sel');}
+function updateLiveBalance() {
+    const tot = parseFloat(document.getElementById('ttv').textContent.replace('₹','')) || 0;
+    const paid = parseFloat(document.getElementById('paid-amt').value) || 0;
+    const rem = Math.max(0, tot - paid);
+    const lbl = document.getElementById('rem-bal-live');
+    if (!lbl) return;
+    if (rem > 0.01) {
+        lbl.textContent = `₹${rem.toFixed(2)} GOES TO TAB`;
+        lbl.style.color = '#ef4444';
+    } else {
+        lbl.textContent = `FULL PAYMENT`;
+        lbl.style.color = '#22c55e';
+    }
+}
+function sp(m){pm=m;['cash','upi','card','credit'].forEach(x=>document.getElementById('pm-'+x).classList.remove('sel'));document.getElementById('pm-'+m).classList.add('sel');const tot=parseFloat(document.getElementById('ttv').textContent.replace('₹',''))||0;const pi=document.getElementById('paid-amt');if(m==='credit'){pi.value=0;pi.dataset.manual='true';}else{pi.value=tot.toFixed(2);pi.dataset.manual='false';}updateLiveBalance();}
 function sm(){
   document.getElementById('man-mod').style.display='flex';
   document.getElementById('man-title').textContent='Add New Medicine';
@@ -1639,7 +1678,7 @@ function dshelf(id){
 }
 
 function acust(){document.getElementById('cust-mod').style.display='flex';document.getElementById('cust-title').textContent='Add Customer';document.getElementById('c-id').value='';document.getElementById('c-n').value='';document.getElementById('c-p').value='';document.getElementById('c-a').value='';document.getElementById('c-e').value='';document.getElementById('c-fh').value='';document.getElementById('c-fr').value='';document.getElementById('c-face').value='';document.getElementById('c-btn-scan').innerHTML='<i class="fas fa-camera"></i> Enroll Face Vector';document.getElementById('c-btn-scan').style.borderColor='';document.getElementById('c-btn-scan').style.color='';renderFamilyHeadOptions('',null);document.getElementById('c-n').focus();}
-function ecust(id){const c=CUSTOMERS.find(x=>x.id==id);if(!c)return;document.getElementById('cust-mod').style.display='flex';document.getElementById('cust-title').textContent='Edit Customer';document.getElementById('c-id').value=c.id;document.getElementById('c-n').value=c.name;document.getElementById('c-p').value=c.phone;document.getElementById('c-a').value=c.address||'';document.getElementById('c-e').value=c.email||'';document.getElementById('c-fh').value=c.family_head_id&&String(c.family_head_id)!==String(c.id)?String(c.family_head_id):'';document.getElementById('c-fr').value=c.family_relation||'';document.getElementById('c-face').value=c.face_vector||'';document.getElementById('c-btn-scan').innerHTML=c.face_vector?'<i class="fas fa-check"></i> ML Vector Enrolled!':'<i class="fas fa-camera"></i> Enroll Face Vector';document.getElementById('c-btn-scan').style.borderColor=c.face_vector?'#22c55e':'';document.getElementById('c-btn-scan').style.color=c.face_vector?'#22c55e':'';renderFamilyHeadOptions(c.family_head_id||'',c.id);document.getElementById('c-n').focus();}
+function ecust(id){const c=CUSTOMERS.find(x=>x.id==id);if(!c)return;document.getElementById('cust-mod').style.display='flex';document.getElementById('cust-title').textContent='Edit Customer';document.getElementById('c-id').value=c.id;document.getElementById('c-n').value=c.name;document.getElementById('c-p').value=c.phone;document.getElementById('c-a').value=c.address||'';document.getElementById('c-e').value=c.email||'';document.getElementById('c-fh').value=c.family_head_id&&String(c.family_head_id)!==String(c.id)?String(c.family_head_id):'';document.getElementById('c-fr').value=c.family_relation||'';document.getElementById('c-face').value=c.face_vector||'';document.getElementById('c-chronic').checked=c.is_chronic||false;document.getElementById('c-btn-scan').innerHTML=c.face_vector?'<i class="fas fa-check"></i> ML Vector Enrolled!':'<i class="fas fa-camera"></i> Enroll Face Vector';document.getElementById('c-btn-scan').style.borderColor=c.face_vector?'#22c55e':'';document.getElementById('c-btn-scan').style.color=c.face_vector?'#22c55e':'';renderFamilyHeadOptions(c.family_head_id||'',c.id);document.getElementById('c-n').focus();}
 
 let enrollStream = null;
 async function enrollFace(e) {
@@ -1668,7 +1707,7 @@ async function enrollFace(e) {
   }
 }
 
-function sv_cust(){const id=document.getElementById('c-id').value,n=document.getElementById('c-n').value.trim(),p=document.getElementById('c-p').value.trim(),a=document.getElementById('c-a').value.trim(),e=document.getElementById('c-e').value.trim(),fh=document.getElementById('c-fh').value,fr=document.getElementById('c-fr').value.trim(),f=document.getElementById('c-face').value;if(!n){alert('Enter Customer Name');return;}const d=id?CUSTOMERS.find(x=>x.id==id):{};fetch(API+'/customers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id||null,name:n,phone:p,address:a,email:e,visits:d.visits||1,total:d.total_spend||0,face_vector:f,family_head_id:fh||null,family_relation:fr})}).then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.message||'Save failed')});return r.json()}).then(()=>{rMasters();document.getElementById('cust-mod').style.display='none';}).catch(err=>alert(err.message));}
+function sv_cust(){const id=document.getElementById('c-id').value,n=document.getElementById('c-n').value.trim(),p=document.getElementById('c-p').value.trim(),a=document.getElementById('c-a').value.trim(),e=document.getElementById('c-e').value.trim(),fh=document.getElementById('c-fh').value,fr=document.getElementById('c-fr').value.trim(),f=document.getElementById('c-face').value,chr=document.getElementById('c-chronic').checked;if(!n){alert('Enter Customer Name');return;}const d=id?CUSTOMERS.find(x=>x.id==id):{};fetch(API+'/customers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id||null,name:n,phone:p,address:a,email:e,visits:d.visits||1,total:d.total_spend||0,face_vector:f,family_head_id:fh||null,family_relation:fr,is_chronic:chr})}).then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.message||'Save failed')});return r.json()}).then(()=>{rMasters();document.getElementById('cust-mod').style.display='none';}).catch(err=>alert(err.message));}
 function dcust(id){if(!confirm('Delete this customer?'))return;fetch(API+'/customers/'+id,{method:'DELETE'}).then(()=>rMasters());}
 
 function asup(){document.getElementById('sup-mod').style.display='flex';document.getElementById('sup-title').textContent='Add Supplier';document.getElementById('s-id').value='';document.getElementById('s-n').value='';document.getElementById('s-p').value='';document.getElementById('s-g').value='';document.getElementById('s-st').value='Active';document.getElementById('s-n').focus();}
@@ -1906,18 +1945,20 @@ function pb2(){
   const now=new Date(),ds=pd(now.getDate())+'/'+pd(now.getMonth()+1)+'/'+now.getFullYear()+' '+pd(now.getHours())+':'+pd(now.getMinutes());
   const bId=editingBillId||('B-'+(allBills.length+1));
   const savedItems=ks.map(k=>({...cart[k]})); // snapshot before clearing
-  const billData={id:bId,ts:now.getTime(),date:ds,cust:cnInp,phone:cpInp,doctor:cdrInp,pay:pm,sub:sub,disc:da+modeDisc,tax:tax,total:tot,items:savedItems,prescription:rxBase64,customer_type:custType,bill_type:billType,discount_type:dt,discount_value:dv};
+  const paidAmt = parseFloat(document.getElementById('paid-amt').value)||0;
+  const billData={id:bId,ts:now.getTime(),date:ds,cust:cnInp,phone:cpInp,doctor:cdrInp,pay:pm,sub:sub,disc:da+modeDisc,tax:tax,total:tot,paid_amount:paidAmt,items:savedItems,prescription:rxBase64,customer_type:custType,bill_type:billType,discount_type:dt,discount_value:dv};
   console.log('Final Bill Payload prescription length:', (billData.prescription||'').length);
 
   const saveMethod=editingBillId?'PATCH':'POST';
   const saveUrl=editingBillId?`${API}/bills/${encodeURIComponent(editingBillId)}`:`${API}/bills`;
   fetch(saveUrl,{method:saveMethod,headers:{'Content-Type':'application/json'},body:JSON.stringify(billData)})
   .then(r=>{if(!r.ok)throw new Error('Server returned '+r.status);return r.json();})
-  .then(()=>{
+  .then(respData=>{
     // ALL UI refreshes happen AFTER server confirms save
     rKpis();
     loadInventory();
     rMasters();
+    if(typeof rInsights === 'function') rInsights();
 
     rxBase64='';
     editingBillId='';
@@ -1932,17 +1973,37 @@ function pb2(){
     document.getElementById('cdr').value='';
     document.getElementById('cust-type').value='customer';
     document.getElementById('bill-type').value='retail';
+    const piEl=document.getElementById('paid-amt'); piEl.value=0; piEl.dataset.manual='false';
     if(document.getElementById('pos-face-vector'))document.getElementById('pos-face-vector').value='';
     renderHeldBills();
     generateWantedList();
     // Print receipt
+    const paidAmt = parseFloat(piEl.value)||0;
+    const remainingOnBill = Math.max(0, tot - paidAmt);
+    
+    // Use the latest balance returned by the server if available
+    const finalTotalBal = (respData.customer && respData.customer.balance !== undefined) 
+                          ? respData.customer.balance 
+                          : remainingOnBill;
+    
+    let balLineWa = '';
+    let balLinePrint = '';
+    
+    if (finalTotalBal > 0) {
+        balLineWa = `\\nPaid: Rs. ${paidAmt.toFixed(2)}\\nRemaining: Rs. ${remainingOnBill.toFixed(2)}\\n*Total Outstanding:* Rs. ${finalTotalBal.toFixed(2)}`;
+        balLinePrint = `<tr><td>Paid Today</td><td class="r">₹${paidAmt.toFixed(2)}</td></tr><tr><td style="font-weight:bold">Remaining (On Tab)</td><td class="r" style="font-weight:bold">₹${remainingOnBill.toFixed(2)}</td></tr><tr style="border-top:1px solid #000"><td style="font-weight:bold">Account Balance</td><td class="r" style="font-weight:bold">₹${finalTotalBal.toFixed(2)}</td></tr>`;
+    } else {
+        balLineWa = `\\nPayment Status: PAID (FULL)`;
+        balLinePrint = `<tr><td colspan="2" style="text-align:center;padding-top:5px;color:#22c55e;font-weight:bold">FULLY PAID</td></tr>`;
+    }
+
     const itemsStrForWa = savedItems.map(i=>`- ${i.n} (Qty:${i.qty}) : Rs.${(i.p*i.qty).toFixed(2)}`).join('\\n');
-    const waMsg = `Hello ${cnInp},\\n\\nYour bill for Rs. ${tot.toFixed(2)} is ready.\\n\\n*Purchases:*\\n${itemsStrForWa}\\nSubtotal: Rs. ${sub.toFixed(2)}\\nDiscount: Rs. ${(da+modeDisc).toFixed(2)}\\nGST: Rs. ${tax.toFixed(2)}\\n*Total: Rs. ${tot.toFixed(2)}*\\n\\nThank you for visiting Selvam Medicals!`;
+    const waMsg = `Hello ${cnInp},\\n\\nYour bill for Rs. ${tot.toFixed(2)} is ready.\\n\\n*Purchases:*\\n${itemsStrForWa}\\nSubtotal: Rs. ${sub.toFixed(2)}\\nDiscount: Rs. ${(da+modeDisc).toFixed(2)}\\nGST: Rs. ${tax.toFixed(2)}\\n*Total: Rs. ${tot.toFixed(2)}*${balLineWa}\\n\\nThank you for visiting Selvam Medicals!`;
     const waBtn = cpInp ? `<button class="no-print" style="margin-top:20px;width:100%;padding:10px;background:#25D366;color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:bold;font-size:14px" onclick="let phone='${cpInp.replace(/\\D/g,'')}';if(phone.length===10)phone='91'+phone;window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(\`${waMsg}\`), '_blank');">Send WhatsApp Receipt</button>` : '';
 
     const rows=savedItems.map(i=>'<tr><td>'+i.n+'</td><td style="text-align:center">'+i.qty+'</td><td style="text-align:right">₹'+i.p+'</td><td style="text-align:right">₹'+(i.p*i.qty).toFixed(2)+'</td></tr>').join('');
     const w=window.open('','_blank','width=400,height=580');
-    w.document.write('<!DOCTYPE html><html><head><title>Bill</title><style>body{font-family:Courier New,monospace;padding:18px;font-size:12px}h2{text-align:center;font-size:17px;margin:0}p{margin:2px 0;text-align:center;font-size:10px;color:#555}hr{border:none;border-top:1px dashed #999;margin:8px 0}table{width:100%;border-collapse:collapse}th{border-bottom:1px solid #000;padding:3px 0;text-align:left;font-size:11px}td{padding:3px 0;font-size:11px}.r{text-align:right}.tot{font-weight:700;border-top:1px dashed #999}@media print{.no-print{display:none;}}</style></head><body><h2>SELVAM MEDICALS</h2><p>Pharmacy & Health Store | Ph: 044-XXXXXXXX</p><hr/><p style="text-align:left">Bill: #'+bId+' | Date: '+ds+'</p><p style="text-align:left;margin-bottom:6px;">'+custType.toUpperCase()+': '+cnInp+' | Phone: '+cpInp+' | Ref: '+(cdrInp||'-')+'</p><p style="text-align:left">Pay: '+pm.toUpperCase()+' | Type: '+billType.toUpperCase()+'</p><hr/><table><thead><tr><th>Medicine</th><th style="text-align:center">Qty</th><th class="r">MRP</th><th class="r">Amt</th></tr></thead><tbody>'+rows+'</tbody></table><hr/><table><tr><td>Subtotal</td><td class="r">₹'+sub.toFixed(2)+'</td></tr><tr><td>Discount</td><td class="r">-₹'+(da+modeDisc).toFixed(2)+'</td></tr><tr><td>GST 5%</td><td class="r">₹'+tax.toFixed(2)+'</td></tr><tr class="tot"><td>TOTAL</td><td class="r">₹'+tot.toFixed(2)+'</td></tr></table><p style="margin-top:12px">Thank you! Get well soon 💊</p>'+waBtn+'<scr'+'ipt>window.print();<\/scr'+'ipt></body></html>');
+    w.document.write('<!DOCTYPE html><html><head><title>Bill</title><style>body{font-family:Courier New,monospace;padding:18px;font-size:12px}h2{text-align:center;font-size:17px;margin:0}p{margin:2px 0;text-align:center;font-size:10px;color:#555}hr{border:none;border-top:1px dashed #999;margin:8px 0}table{width:100%;border-collapse:collapse}th{border-bottom:1px solid #000;padding:3px 0;text-align:left;font-size:11px}td{padding:3px 0;font-size:11px}.r{text-align:right}.tot{font-weight:700;border-top:1px dashed #999}@media print{.no-print{display:none;}}</style></head><body><h2>SELVAM MEDICALS</h2><p>Pharmacy & Health Store | Ph: 044-XXXXXXXX</p><hr/><p style="text-align:left">Bill: #'+bId+' | Date: '+ds+'</p><p style="text-align:left;margin-bottom:6px;">'+custType.toUpperCase()+': '+cnInp+' | Phone: '+cpInp+' | Ref: '+(cdrInp||'-')+'</p><p style="text-align:left">Pay: '+pm.toUpperCase()+' | Type: '+billType.toUpperCase()+'</p><hr/><table><thead><tr><th>Medicine</th><th style="text-align:center">Qty</th><th class="r">MRP</th><th class="r">Amt</th></tr></thead><tbody>'+rows+'</tbody></table><hr/><table><tr><td>Subtotal</td><td class="r">₹'+sub.toFixed(2)+'</td></tr><tr><td>Discount</td><td class="r">-₹'+(da+modeDisc).toFixed(2)+'</td></tr><tr><td>GST 5%</td><td class="r">₹'+tax.toFixed(2)+'</td></tr><tr class="tot"><td>BILL TOTAL</td><td class="r">₹'+tot.toFixed(2)+'</td></tr>'+balLinePrint+'</table><p style="margin-top:12px">Thank you! Get well soon 💊</p>'+waBtn+'<scr'+'ipt>window.print();<\/scr'+'ipt></body></html>');
     w.document.close();
   }).catch(e=>alert('Bill Save Error: '+e.message));
 }
@@ -3066,5 +3127,19 @@ function saveWaste(){
   </div>
 </div>
 
+<script>
+document.getElementById('cn').addEventListener('change', function() {
+    const c = CUSTOMERS.find(x => x.name === this.value);
+    if(c) {
+        document.getElementById('cp').value = c.phone;
+    }
+});
+document.getElementById('cp').addEventListener('change', function() {
+    const c = CUSTOMERS.find(x => x.phone === this.value);
+    if(c) {
+        document.getElementById('cn').value = c.name;
+    }
+});
+</script>
 </body>
 </html>
