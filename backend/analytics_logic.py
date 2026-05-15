@@ -3,6 +3,7 @@ from sqlalchemy import func, desc, case
 from .extensions import db
 from .models.sales import SalesBill, SalesBillItem
 from .models.core import Item, Customer
+from .models.inventory import StockBatch
 from .models.ai import CustomerPurchasePattern
 import math
 
@@ -357,3 +358,5 @@ def get_refill_reminders(days_buffer=5):
         }
         for p, name, phone, item_name in reminders
     ]
+
+

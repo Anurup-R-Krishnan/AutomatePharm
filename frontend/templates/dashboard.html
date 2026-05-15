@@ -237,7 +237,7 @@
     <div class="crd" style="padding:16px">
       <div class="sec-hd"><span class="sec-t">Low Stock</span><span style="font-size:11px;color:var(--acc);cursor:pointer">View All</span></div>
       <div id="sys-low"></div>
-    </div>>
+    </div>
   </div>
 </div></div>
 <!-- UTILITIES -->
@@ -352,8 +352,7 @@
       <div style="font-size:11px;color:var(--mt)">Log broken/lost items</div>
     </div>
     </div>
-  </div>
-
+  
   <!-- FINANCE / ACCOUNTING PANEL -->
   <div id="finance-mod" style="display:none;flex-direction:column;gap:14px;margin-top:18px;padding:22px;background:var(--card);box-shadow:0 10px 25px rgba(0,0,0,0.25);border-radius:10px;">
     <div style="font-size:15px;font-weight:600;color:#e8ecf4;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-shrink:0;">
@@ -578,6 +577,8 @@
         <tbody id="refill-body"><tr><td colspan="3" style=\"text-align:center;padding:40px;color:var(--dim)">Loading...</td></tr></tbody>
       </table></div>
     </div>
+
+    </div>
   </div>
 </div></div>
 <!-- SETTINGS -->
@@ -606,7 +607,6 @@
   </div><!-- /ct -->
 </div><!-- /main -->
 
-</div>
 <!-- MEDICINE MODAL (ADD/EDIT) -->
 <div id="man-mod" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center;">
   <div class="crd fm" style="width:520px;padding:22px;background:var(--card);box-shadow:0 10px 25px rgba(0,0,0,0.5);max-height:90vh;overflow-y:auto;">
@@ -907,6 +907,9 @@ function sw(k,el){
   if(pn)pn.classList.add('on');
   if(k==='sales' && typeof loadInventory==='function'){
     loadInventory();
+  }
+  if(k==='insights' && typeof rInsights==='function'){
+    rInsights();
   }
 }
 // Log
