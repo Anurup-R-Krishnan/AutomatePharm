@@ -147,6 +147,23 @@ def _adjust_customer(name: str, phone: str, total_delta: float, visit_delta: int
     db.session.flush()
 
 
+def _cancel_bill_record(bill: SalesBill, reason: str) -> None:
+    cart_items = [{"id": bi.item_id, "qty": bi.qty_sold} for bi in bill.items]
+    _apply_stock_delta(bill.bill_id, cart_items, +1)
+
+    if bill.customer_id:
+        customer = Customer.query.get(bill.customer_id)
+        if customer:
+            customer.outstanding_balance = max(
+                0,
+                float(customer.outstanding_balance or 0) - float(bill.net_amount or 0),
+            )
+
+    bill.is_cancelled = True
+    bill.cancel_reason = reason
+    bill.cancelled_at = datetime.utcnow()
+
+
 def _apply_stock_delta(bill_id: int, items: list, multiplier: int) -> None:
     """Adjust StockBatch.current_qty for each item in a bill using FIFO logic for sales."""
     txn_type_code = "SALE" if multiplier < 0 else "RETURN"
@@ -265,12 +282,6 @@ def sales_receipt_page():
     return render_template("SalesReceipt.html", current_user=_current_page_user())
 
 
-@bills_bp.route("/billing/cancel-bill", methods=["GET"])
-@login_required
-def cancel_bill_page():
-    return render_template("cancelbill.html", current_user=_current_page_user())
-
-
 @bills_bp.route("/api/billing/vouchers", methods=["GET"])
 def get_billing_vouchers():
     voucher_type = request.args.get("type", "").strip().lower()
@@ -376,52 +387,6 @@ def delete_billing_voucher(voucher_id):
         return _json_error("Failed to delete voucher", 500, str(err))
 
 
-@bills_bp.route("/api/bills/<bill_id>/cancel-preview", methods=["GET"])
-def get_cancel_bill_preview(bill_id):
-    real_id = bill_id.replace("B-", "").strip()
-    bill = SalesBill.query.get(real_id)
-    if not bill or bill.is_cancelled:
-        return _json_error("Bill not found", 404, {"id": bill_id})
-
-    customer = Customer.query.get(bill.customer_id) if bill.customer_id else None
-    doctor = Doctor.query.get(bill.doctor_id) if bill.doctor_id else None
-    salesman_name = "System"
-    if bill.salesman_id:
-        from ..models.hr import Salesman
-
-        salesman = Salesman.query.get(bill.salesman_id)
-        if salesman and salesman.salesman_name:
-            salesman_name = salesman.salesman_name
-
-    items = []
-    for idx, bi in enumerate(bill.items, start=1):
-        item = Item.query.get(bi.item_id)
-        batch = StockBatch.query.get(bi.stock_batch_id) if bi.stock_batch_id else None
-        items.append({
-            "line_no": idx,
-            "item_code": bi.item_id,
-            "item_name": item.item_name if item else bi.item_id,
-            "batch": batch.batch_no if batch else "",
-            "expiry": batch.expiry_date.strftime("%m/%y") if batch and batch.expiry_date else "",
-            "qty": int(bi.qty_sold or 0),
-            "mrp": float(bi.mrp_at_sale or 0),
-            "value": float(bi.value or 0),
-        })
-
-    return jsonify({
-        "id": f"B-{bill.bill_id}",
-        "bill_no": str(bill.bill_no),
-        "cashbill_no": str(bill.bill_no),
-        "customer_name": customer.customer_name if customer else "Walk-in",
-        "customer_address": customer.address if customer and customer.address else "",
-        "doctor_name": doctor.doctor_name if doctor else "Self",
-        "salesman_name": salesman_name,
-        "remarks": bill.remarks or "",
-        "total": float(bill.net_amount or 0),
-        "items": items,
-    })
-
-
 @bills_bp.route("/api/bills/<bill_id>/cancel", methods=["POST"])
 def cancel_bill_with_reason(bill_id):
     real_id = bill_id.replace("B-", "").strip()
@@ -435,11 +400,7 @@ def cancel_bill_with_reason(bill_id):
     reason = str(data.get("reason", "")).strip() or "Cancelled via cancel bill screen"
 
     try:
-        cart_items = [{"id": bi.item_id, "qty": bi.qty_sold} for bi in bill.items]
-        _apply_stock_delta(bill.bill_id, cart_items, +1)
-        bill.is_cancelled = True
-        bill.cancel_reason = reason
-        bill.cancelled_at = datetime.utcnow()
+        _cancel_bill_record(bill, reason)
         db.session.commit()
         return jsonify({"status": "success", "id": bill_id, "reason": reason})
     except Exception as err:
@@ -685,17 +646,7 @@ def delete_bill(bill_id):
         return _json_error("Bill not found", 404, {"id": bill_id})
 
     try:
-        # Restore stock for all items in this bill
-        cart_items = [
-            {"id": bi.item_id, "qty": bi.qty_sold}
-            for bi in bill.items
-        ]
-        _apply_stock_delta(bill.bill_id, cart_items, +1)
-
-        # Soft-delete via cancel
-        bill.is_cancelled  = True
-        bill.cancel_reason = "Deleted via API"
-        bill.cancelled_at  = datetime.utcnow()
+        _cancel_bill_record(bill, "Deleted via API")
 
         db.session.commit()
         return jsonify({"status": "success", "deleted": bill_id})

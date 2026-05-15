@@ -83,6 +83,33 @@ def _family_scope(customer: Customer) -> tuple[int, list[int]]:
     return root_id, customer_ids
 
 
+def _balance_components(customer_ids: list[int]) -> dict:
+    scoped_ids = sorted({int(cid) for cid in customer_ids if cid is not None})
+    if not scoped_ids:
+        return {"sales": 0.0, "payments": 0.0, "net": 0.0, "balance": 0.0}
+
+    total_sales = float(
+        db.session.query(func.coalesce(func.sum(SalesBill.net_amount), 0))
+        .filter(
+            SalesBill.customer_id.in_(scoped_ids),
+            SalesBill.is_cancelled.is_(False),
+        )
+        .scalar()
+    )
+    total_payments = float(
+        db.session.query(func.coalesce(func.sum(ReceiptPayment.amount), 0))
+        .filter(ReceiptPayment.customer_id.in_(scoped_ids))
+        .scalar()
+    )
+    net = total_sales - total_payments
+    return {
+        "sales": total_sales,
+        "payments": total_payments,
+        "net": net,
+        "balance": max(0.0, net),
+    }
+
+
 def _family_summary(customer: Customer) -> dict:
     root_id, customer_ids = _family_scope(customer)
     member_rows = Customer.query.filter(Customer.customer_id.in_(customer_ids)).all()
@@ -93,24 +120,7 @@ def _family_summary(customer: Customer) -> dict:
         SalesBill.customer_id.in_(customer_ids),
         SalesBill.is_cancelled.is_(False),
     ).count()
-    total_spend = float(
-        db.session.query(func.coalesce(func.sum(SalesBill.net_amount), 0))
-        .filter(
-            SalesBill.customer_id.in_(customer_ids),
-            SalesBill.is_cancelled.is_(False),
-        )
-        .scalar()
-    )
-    total_payments = float(
-        db.session.query(func.coalesce(func.sum(ReceiptPayment.amount), 0))
-        .filter(ReceiptPayment.customer_id.in_(customer_ids))
-        .scalar()
-    )
-
-    if len(customer_ids) == 1:
-        balance = float(customer.outstanding_balance or 0)
-    else:
-        balance = max(0.0, total_spend - total_payments)
+    family_totals = _balance_components(customer_ids)
 
     return {
         "family_head_id": root_id,
@@ -119,8 +129,8 @@ def _family_summary(customer: Customer) -> dict:
         "family_member_count": len(customer_ids),
         "family_member_names": [member_lookup[cid].customer_name for cid in customer_ids if cid in member_lookup],
         "visits": visits,
-        "total_spend": total_spend,
-        "balance": balance,
+        "total_spend": family_totals["sales"],
+        "balance": family_totals["balance"],
     }
 
 
@@ -174,13 +184,27 @@ def add_supplier():
 @masters_bp.route("/api/customers", methods=["GET"])
 def get_customers():
     rows = Customer.query.order_by(Customer.customer_name.asc()).all()
-    return jsonify(
-        [
-            (lambda summary: {
+    customer_ids = [r.customer_id for r in rows]
+    visit_map: dict[int, int] = {}
+    if customer_ids:
+        counts = (
+            db.session.query(SalesBill.customer_id, func.count())
+            .filter(SalesBill.customer_id.in_(customer_ids), SalesBill.is_cancelled.is_(False))
+            .group_by(SalesBill.customer_id)
+            .all()
+        )
+        visit_map = {int(cid): int(cnt) for cid, cnt in counts}
+
+    out = []
+    for row in rows:
+        summary = _family_summary(row)
+        out.append(
+            {
                 "id": row.customer_id,
                 "name": row.customer_name,
                 "phone": row.phone or "",
-                "visits": summary["visits"],
+                # Show per-customer visit count (do not use family aggregate here)
+                "visits": visit_map.get(row.customer_id, 0),
                 "total_spend": summary["total_spend"],
                 "address": row.address or "",
                 "email": "",
@@ -191,10 +215,9 @@ def get_customers():
                 "family_relation": summary["family_relation"],
                 "family_member_count": summary["family_member_count"],
                 "family_member_names": summary["family_member_names"],
-            })(_family_summary(row))
-            for row in rows
-        ]
-    )
+            }
+        )
+    return jsonify(out)
 
 
 @masters_bp.route("/api/customers", methods=["POST"])
@@ -396,7 +419,9 @@ def get_customer_ledger(id):
     if not customer:
         return json_error("Customer not found", 404)
 
-    _, family_ids = _family_scope(customer)
+    root_id, family_ids = _family_scope(customer)
+    own_totals = _balance_components([customer.customer_id])
+    family_totals = _balance_components(family_ids)
 
     bills = SalesBill.query.filter(
         SalesBill.customer_id.in_(family_ids),
@@ -451,7 +476,19 @@ def get_customer_ledger(id):
             }
         )
 
-    return jsonify(out)
+    return jsonify(
+        {
+            "entries": out,
+            "summary": {
+                "customer_id": int(customer.customer_id),
+                "family_head_id": int(root_id),
+                "family_member_count": len(family_ids),
+                "own_credit": round(own_totals["balance"], 2),
+                "family_credit": round(family_totals["balance"], 2),
+                "is_family_account": len(family_ids) > 1,
+            },
+        }
+    )
 
 
 @masters_bp.route("/api/customers/<id>/payment", methods=["POST"])
@@ -468,8 +505,19 @@ def record_customer_payment(id):
 
         user_id, payment_mode_id = _ensure_payment_context()
 
-        current_balance = float(customer.outstanding_balance or 0)
-        new_balance = current_balance - amount
+        own_totals = _balance_components([customer.customer_id])
+        current_balance = own_totals["balance"]
+        if amount > current_balance + 0.0001:
+            return json_error(
+                "Payment exceeds this customer's own outstanding credit",
+                400,
+                {
+                    "own_credit": round(current_balance, 2),
+                    "requested_payment": round(amount, 2),
+                },
+            )
+
+        new_balance = max(0.0, current_balance - amount)
         customer.outstanding_balance = new_balance
 
         receipt = ReceiptPayment(
@@ -484,7 +532,16 @@ def record_customer_payment(id):
         db.session.add(receipt)
         db.session.commit()
 
-        return jsonify({"status": "success", "new_balance": new_balance})
+        _, family_ids = _family_scope(customer)
+        family_totals = _balance_components(family_ids)
+        return jsonify(
+            {
+                "status": "success",
+                "new_balance": round(new_balance, 2),
+                "own_credit": round(new_balance, 2),
+                "family_credit": round(family_totals["balance"], 2),
+            }
+        )
     except Exception as err:
         db.session.rollback()
         return json_error("Failed to record payment", 500, str(err))

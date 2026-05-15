@@ -229,6 +229,28 @@
     <div class="kc bl"><div class="ki"><i class="fas fa-users"></i></div><div class="kl">Active Users</div><div class="kv" id="kpi-au">1</div><div class="ks">Logged in now</div></div>
     <div class="kc re"><div class="ki"><i class="fas fa-bell"></i></div><div class="kl">Alerts</div><div class="kv" id="kpi-al">0</div><div class="ks">Expiry + Low stock</div></div>
   </div>
+  <div class="crd" style="padding:12px;margin-top:14px">
+    <div class="sec-hd" style="margin-bottom:10px">
+      <span class="sec-t">Bills</span>
+    </div>
+    <div class="crd" style="padding:12px;margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <input type="date" id="uf-st" class="fin" style="width:140px;background:#252a40;border:1px solid var(--brd);border-radius:7px;color:var(--tx);outline:none;padding:7px;"/>
+      <span style="color:var(--mt)">to</span>
+      <input type="date" id="uf-en" class="fin" style="width:140px;background:#252a40;border:1px solid var(--brd);border-radius:7px;color:var(--tx);outline:none;padding:7px;"/>
+      <input type="text" id="uf-cu" class="fin" placeholder="Customer name..." style="min-width:140px;flex:1;background:#252a40;border:1px solid var(--brd);border-radius:7px;color:var(--tx);outline:none;padding:7px;"/>
+      <input type="text" id="uf-dr" class="fin" placeholder="Doctor..." style="width:120px;background:#252a40;border:1px solid var(--brd);border-radius:7px;color:var(--tx);outline:none;padding:7px;"/>
+      <input type="text" id="uf-md" class="fin" placeholder="Medicine..." style="width:140px;background:#252a40;border:1px solid var(--brd);border-radius:7px;color:var(--tx);outline:none;padding:7px;"/>
+      <button class="btn btn-acc" onclick="fetchFilteredBills()"><i class="fas fa-search"></i> Search</button>
+    </div>
+    <div class="tw" style="margin-bottom:20px;">
+      <table>
+        <thead><tr><th>Bill No.</th><th>Date</th><th>Customer</th><th>Prescription</th><th>Amount</th><th>Method</th><th>Doctor</th><th>Items</th><th>Action</th></tr></thead>
+        <tbody id="util-bills-body">
+          <tr><td colspan="9" style="text-align:center;color:var(--dim)">No bills generated yet.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
   <div style="display:none;grid-template-columns:1fr 1fr;gap:14px">
     <div class="crd" style="padding:16px">
       <div class="sec-hd"><span class="sec-t">Expiry Alerts</span><span style="font-size:11px;color:var(--acc);cursor:pointer">View All</span></div>
@@ -243,33 +265,11 @@
 <!-- UTILITIES -->
 <div class="pn" id="p-utilities"><div class="pg">
   <div class="sec-hd"><span class="sec-t">Sales Report &amp; Utilities</span></div>
-  <div class="crd" style="padding:12px;margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-    <input type="date" id="uf-st" class="fin" style="width:140px;background:#252a40;border:1px solid var(--brd);border-radius:7px;color:var(--tx);outline:none;padding:7px;"/>
-    <span style="color:var(--mt)">to</span>
-    <input type="date" id="uf-en" class="fin" style="width:140px;background:#252a40;border:1px solid var(--brd);border-radius:7px;color:var(--tx);outline:none;padding:7px;"/>
-    <input type="text" id="uf-cu" class="fin" placeholder="Customer name..." style="min-width:140px;flex:1;background:#252a40;border:1px solid var(--brd);border-radius:7px;color:var(--tx);outline:none;padding:7px;"/>
-    <input type="text" id="uf-dr" class="fin" placeholder="Doctor..." style="width:120px;background:#252a40;border:1px solid var(--brd);border-radius:7px;color:var(--tx);outline:none;padding:7px;"/>
-    <input type="text" id="uf-md" class="fin" placeholder="Medicine..." style="width:140px;background:#252a40;border:1px solid var(--brd);border-radius:7px;color:var(--tx);outline:none;padding:7px;"/>
-    <button class="btn btn-acc" onclick="fetchFilteredBills()"><i class="fas fa-search"></i> Search</button>
-  </div>
-  <div class="tw" style="margin-bottom: 20px;">
-    <table>
-      <thead><tr><th>Bill No.</th><th>Date</th><th>Customer</th><th>Prescription</th><th>Amount</th><th>Method</th><th>Doctor</th><th>Items</th><th>Action</th></tr></thead>
-      <tbody id="util-bills-body">
-        <tr><td colspan="9" style=\"text-align:center;color:var(--dim)">No bills generated yet.</td></tr>
-      </tbody>
-    </table>
-  </div>
   <div class="util-actions-sticky" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:12px;margin-bottom:18px">
     <div class="crd" onclick="window.open('/reports/daily-sales','_blank')" style="padding:18px;cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor='#374151'" onmouseout="this.style.borderColor=''">
       <i class="fas fa-cash-register" style="font-size:22px;color:#f59e0b;margin-bottom:10px;display:block"></i>
       <div style="font-size:13px;font-weight:600;margin-bottom:4px">Daily Sales</div>
       <div style="font-size:11px;color:var(--mt)">Day book &amp; cash tally</div>
-    </div>
-    <div class="crd" onclick="window.open('/billing/cancel-bill','_blank')" style="padding:18px;cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor='#374151'" onmouseout="this.style.borderColor=''">
-      <i class="fas fa-ban" style="font-size:22px;color:#ef4444;margin-bottom:10px;display:block"></i>
-      <div style="font-size:13px;font-weight:600;margin-bottom:4px">Cancel Bill</div>
-      <div style="font-size:11px;color:var(--mt)">Open bill cancellation screen</div>
     </div>
     <div class="crd" onclick="rStockRep()" style="padding:18px;cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor='#374151'" onmouseout="this.style.borderColor=''">
       <i class="fas fa-boxes-stacked" style="font-size:22px;color:#3b82f6;margin-bottom:10px;display:block"></i>
@@ -663,7 +663,7 @@
 <div id="pur-mod" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center;">
   <div class="crd fm" style="width:720px;max-width:95vw;padding:22px;background:var(--card);box-shadow:0 10px 25px rgba(0,0,0,0.5);max-height:90vh;overflow:auto;">
     <div style="font-size:15px;font-weight:600;margin-bottom:16px;color:#e8ecf4;display:flex;justify-content:space-between;align-items:center;">
-      <span>New Purchase Order</span>
+      <span id="pur-title">New Purchase Order</span>
       <i class="fas fa-xmark" style="cursor:pointer;color:var(--mt)" onclick="document.getElementById('pur-mod').style.display='none'"></i>
     </div>
     <div class="g2" style="margin-bottom:0">
@@ -929,6 +929,7 @@ function stab(el,id){document.querySelectorAll('.tab').forEach(x=>x.classList.re
 let MEDS=[], SHELVES=[], cart={}, pm='cash', AM=[];
 let heldBills=JSON.parse(localStorage.getItem('heldBills')||'[]');
 let purchaseImportRows=[];
+let purchaseLaunchContext='manual';
 let connectorSites=JSON.parse(localStorage.getItem('connectorSites')||'[{"id":"site-retailio","name":"Retailio","catalog":["Dolo 650mg","Augmentin 625","Pantoprazole 40","Ondansetron 4mg"]}]');
 let wantedRows=[];
 const BASE_ORIGIN = window.location.protocol.startsWith('http') ? window.location.origin : 'http://127.0.0.1:5001';
@@ -1144,17 +1145,8 @@ function loadBillForEdit(id){
 }
 
 function deleteBill(id){
-  if(!confirm(`Delete bill ${id}? This will restore stock and customer totals.`))return;
-  fetch(API+`/bills/${encodeURIComponent(id)}`,{method:'DELETE'})
-    .then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.message||'Delete failed')});return r.json();})
-    .then(()=>{
-      if(editingBillId===String(id)) clearCurrentBillUI();
-      rKpis();
-      loadInventory();
-      rMasters();
-
-    })
-    .catch(err=>alert('Delete failed: '+err.message));
+  if(!confirm(`Cancel bill ${id}? This will restore stock and customer totals.`))return;
+  cancelBillAndRefresh(id, 'Cancelled from utilities list', false);
 }
 
 function loadHeldBill(){
@@ -1204,7 +1196,14 @@ function updateShelfPreview(){
   preview.value=shelf?shelf.label:'Unassigned';
   medSel.onchange=updateShelfPreview;
 }
-function rmed(list){const g=document.getElementById('mg');g.innerHTML='';if(!list.length){g.innerHTML='<div style="color:var(--mt);font-size:12px;padding:16px;grid-column:1/-1">No medicines found.</div>';return;}list.forEach(m=>{const d=document.createElement('div');let scl='';if(m.s<=0)scl=' os';else if(m.s<15)scl=' ls';d.className='mc'+scl;d.tabIndex=0;d.onclick=(e)=>{if(!e.target.closest('.madd')&&!e.target.closest('.mdel')&&!e.target.closest('.mst'))at(m.id);};const db=`<div class="mdel" title="Delete" onclick="dm('${m.id}');event.stopPropagation()"><i class="fas fa-trash"></i></div>`;d.innerHTML='<div class="mn" title="'+m.n+'">'+m.n+'</div><div class="mcat">'+m.g+' · '+m.c+'</div><div style="font-size:10px;color:var(--mt);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+shelfLabel(m)+'</div><div class="mr"><div class="mp">₹'+m.p+'</div><div class="mst" onclick="editMed(\''+m.id+'\');event.stopPropagation()" title="Edit Medicine">'+m.s+' units <i class="fas fa-pen" style="font-size:8.5px;opacity:0.6"></i></div><div style="display:flex;align-items:center;gap:6px;">'+db+'<div class="madd" onclick="at(\''+m.id+'\');event.stopPropagation()"><i class="fas fa-plus"></i></div></div></div>';g.appendChild(d);});}
+function stockThresholdFor(m){
+  const configured=parseInt(m?.reorder,10)||0;
+  return configured>0 ? configured : 15;
+}
+function isLowStockMed(m){
+  return (parseInt(m?.s,10)||0) <= stockThresholdFor(m);
+}
+function rmed(list){const g=document.getElementById('mg');g.innerHTML='';if(!list.length){g.innerHTML='<div style="color:var(--mt);font-size:12px;padding:16px;grid-column:1/-1">No medicines found.</div>';return;}list.forEach(m=>{const d=document.createElement('div');let scl='';if(m.s<=0)scl=' os';else if(isLowStockMed(m))scl=' ls';d.className='mc'+scl;d.tabIndex=0;d.onclick=(e)=>{if(!e.target.closest('.madd')&&!e.target.closest('.mdel')&&!e.target.closest('.mst')&&!e.target.closest('.mord'))at(m.id);};const db=`<div class="mdel" title="Delete" onclick="dm('${m.id}');event.stopPropagation()"><i class="fas fa-trash"></i></div>`;const orderBtn=isLowStockMed(m)?`<div class="mord" title="Create Supplier Order" onclick="openQuickSupplierOrder('${m.id}');event.stopPropagation()" style="width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:rgba(245,158,11,0.12);color:#f59e0b;border:1px solid rgba(245,158,11,0.25)"><i class="fas fa-truck-loading"></i></div>`:'';d.innerHTML='<div class="mn" title="'+m.n+'">'+m.n+'</div><div class="mcat">'+m.g+' · '+m.c+'</div><div style="font-size:10px;color:var(--mt);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+shelfLabel(m)+'</div><div class="mr"><div class="mp">₹'+m.p+'</div><div class="mst" onclick="editMed(\''+m.id+'\');event.stopPropagation()" title="Edit Medicine">'+m.s+' units <i class="fas fa-pen" style="font-size:8.5px;opacity:0.6"></i></div><div style="display:flex;align-items:center;gap:6px;">'+orderBtn+db+'<div class="madd" onclick="at(\''+m.id+'\');event.stopPropagation()"><i class="fas fa-plus"></i></div></div></div>';g.appendChild(d);});}
 function rItems(list){
   const tb=document.getElementById("inv-body");
   if(!tb)return;
@@ -1223,7 +1222,7 @@ function rItems(list){
       <td>${m.p_packing||"—"}</td>
       <td>₹${m.p}</td>
       <td>${m.s_packing||"—"}</td>
-      <td style="font-weight:600; color:${m.s<10?"#ef4444":"inherit"}">${m.s}</td>
+      <td style="font-weight:600; color:${isLowStockMed(m)?"#ef4444":"inherit"}">${m.s}</td>
       <td>${m.p_gst}%</td>
       <td>${m.s_gst}%</td>
       <td>${m.disc}%</td>
@@ -1232,6 +1231,7 @@ function rItems(list){
       <td>${m.max_qty}</td>
       <td style="text-align:right">
         <button class="btn btn-out" style="padding:4px 8px" onclick="editMed('${m.id}')" title="Edit Item"><i class="fas fa-pen"></i></button>
+        ${isLowStockMed(m)?`<button class="btn btn-out" style="padding:4px 8px;margin-left:4px;color:#f59e0b;border-color:rgba(245,158,11,0.35)" onclick="openQuickSupplierOrder('${m.id}')" title="Create Supplier Order"><i class="fas fa-truck-loading"></i></button>`:''}
         <button class="btn btn-out" style="padding:4px 8px;margin-left:4px;color:#ef4444;border-color:rgba(239,68,68,0.3)" onclick="openWaste('${m.id}')" title="Damage / Waste"><i class="fas fa-trash-can"></i></button>
       </td>
     </tr>`;
@@ -1713,6 +1713,32 @@ function renderUtils(){const tbody=document.getElementById('util-bills-body');if
 <td style="vertical-align:middle;color:var(--mt);font-size:11.5px;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${itemsTxt}">${itemsTxt}</td>
 <td style="vertical-align:middle;text-align:right;white-space:nowrap"><button class="btn btn-out" style="padding:4px 8px;font-size:10px;margin-right:6px;border-color:var(--acc);color:var(--acc)" onclick="window.open('/reports/invoice/${b.id}','_blank')" title="View Invoice"><i class="fas fa-file-invoice"></i></button><button class="btn btn-out" style="padding:4px 8px;font-size:10px;margin-right:6px;border-color:#25D366" onclick="sendFreeWa('${b.id}')" title="Free WhatsApp"><i class="fab fa-whatsapp" style="color:#25D366;font-size:12px"></i></button><button class="btn btn-out" style="padding:4px 8px;font-size:10px;margin-right:6px" onclick="loadBillForEdit('${b.id}')"><i class="fas fa-pen"></i></button><button class="btn btn-r" style="padding:4px 8px;font-size:10px" onclick="deleteBill('${b.id}')"><i class="fas fa-trash"></i></button></td>
 </tr>`;});}
+function cancelBillAndRefresh(id, defaultReason, askReason=true){
+  const reason = askReason ? prompt(`Cancel bill ${id}. Enter reason:`, defaultReason || 'Cancelled from dashboard') : (defaultReason || 'Cancelled from dashboard');
+  if(reason===null)return;
+  fetch(API+`/bills/${encodeURIComponent(id)}/cancel`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({reason: reason.trim() || defaultReason || 'Cancelled from dashboard'})
+  })
+    .then(r=>r.json().then(data=>({ok:r.ok,data})))
+    .then(({ok,data})=>{
+      if(!ok) throw new Error(data.message||data.error||'Cancel failed');
+      if(editingBillId===String(id)) clearCurrentBillUI();
+      const selectedDate=document.getElementById('sys-date')?.value||'';
+      rKpis(selectedDate||undefined);
+      loadInventory();
+      rMasters();
+      if(document.getElementById('finance-mod')?.style.display==='flex' && typeof loadFinancePanel==='function') loadFinancePanel();
+    })
+    .catch(err=>alert('Cancel failed: '+err.message));
+}
+
+function cancelBillFromSystem(id){
+  if(!confirm(`Cancel bill ${id}? This will restore stock and remove it from sales.`))return;
+  cancelBillAndRefresh(id, 'Cancelled from system dashboard', true);
+}
+
 function v_rx(id){const b=allBills.find(x=>x.id==id);if(!b||!b.prescription)return;const isPdf=b.prescription.startsWith('data:application/pdf');const w=window.open('','_blank','width=1000,height=920');const content=isPdf?`<iframe src="${b.prescription}" style="width:95%;height:82vh;border-radius:12px;border:1px solid #334155;background:#1e293b;box-shadow:0 20px 50px rgba(0,0,0,0.5)"></iframe>`:`<video style="display:none"></video><img src="${b.prescription}" style="max-width:90%;max-height:80%;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,0.5);border:1px solid #334155;"/><p style="margin-top:24px;font-size:14px;color:#94a3b8;letter-spacing:0.5px">Customer: <b style="color:#f1f5f9">${b.cust}</b></p>`;w.document.write(`<html><head><title>Prescription: ${b.cust}</title><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet"/><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/><style>body{margin:0;background:#0f172a;color:#fff;font-family:'Inter',sans-serif;display:flex;flex-direction:column;align-items:center;height:100vh;overflow:hidden}.hdr{width:100%;padding:20px;background:#1e293b;border-bottom:1px solid #334155;display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:30px}.hdr i{color:#f5a623;font-size:20px}.hdr h2{margin:0;font-size:18px;font-weight:600;letter-spacing:-0.5px}</style></head><body><div class="hdr"><i class="fas fa-file-prescription"></i><h2>Prescription for Bill #${b.id}</h2></div>${content}</body></html>`);}
 function rKpis(sD){
   fetch(API+'/bills?t='+Date.now()).then(r=>r.json()).then(bls=>{
@@ -2005,13 +2031,44 @@ function prFullPdf(){
     w.document.close();
 }
 function apur(){
+  purchaseLaunchContext='manual';
   document.getElementById('pur-mod').style.display='flex';
+  const title=document.getElementById('pur-title');
+  if(title) title.textContent='New Purchase Order';
   document.getElementById('pur-s').value='';
   document.getElementById('pur-st').value='Pending';
   document.getElementById('pur-a').value=0;
   resetPurchaseLines();
   recalcPurchaseAmount();
   document.getElementById('pur-s').focus();
+}
+
+function suggestedOrderQty(m){
+  const stock=parseInt(m?.s,10)||0;
+  const threshold=stockThresholdFor(m);
+  const maxQty=parseInt(m?.max_qty,10)||0;
+  if(maxQty>threshold) return Math.max(1, maxQty-stock);
+  return Math.max(1, threshold-stock);
+}
+
+function openQuickSupplierOrder(itemId){
+  const m=MEDS.find(x=>String(x.id)===String(itemId));
+  if(!m)return;
+  apur();
+  purchaseLaunchContext='reorder';
+  const title=document.getElementById('pur-title');
+  if(title) title.textContent=`Supplier Order: ${m.n}`;
+  const lines=document.getElementById('pur-lines');
+  if(lines) lines.innerHTML='';
+  addPurchaseLine({
+    name:m.n,
+    qty:suggestedOrderQty(m),
+    price:parseFloat(m.p_rate)||0,
+    basis:'per_unit'
+  });
+  recalcPurchaseAmount();
+  const supplierInput=document.getElementById('pur-s');
+  if(supplierInput) supplierInput.focus();
 }
 
 function addPurchaseLine(seed){
@@ -2101,6 +2158,10 @@ async function sv_pur(){
     rPurchases();
     rMasters();
     document.getElementById('pur-mod').style.display='none';
+    if(purchaseLaunchContext==='reorder'){
+      sw('purchase',document.querySelector('.ni[data-panel="purchase"]'));
+      purchaseLaunchContext='manual';
+    }
     alert('Purchase order saved and inventory updated.');
   } catch(err){
     alert(err.message||'Failed to save purchase order');
@@ -2385,13 +2446,28 @@ function openLedger(customerId) {
 
 function rLedger(customerId) {
   const tb = document.getElementById('ledger-body');
+  const ownEl = document.getElementById('ledger-own-credit');
+  const familyEl = document.getElementById('ledger-family-credit');
+  const familyWrap = document.getElementById('ledger-family-summary');
   tb.innerHTML = '<tr><td colspan="5" style="text-align:center">Loading...</td></tr>';
-  fetch(API+'/customers/'+customerId+'/ledger?t='+Date.now()).then(r=>r.json()).then(rows=>{
+  if(ownEl) ownEl.textContent = 'Loading...';
+  if(familyEl) familyEl.textContent = 'Loading...';
+  if(familyWrap) familyWrap.style.display = 'none';
+  fetch(API+'/customers/'+customerId+'/ledger?t='+Date.now()).then(r=>r.json()).then(data=>{
+      const rows = Array.isArray(data) ? data : (data.entries || []);
+      const summary = Array.isArray(data) ? null : (data.summary || {});
+      if(ownEl && summary) ownEl.textContent = '₹' + Number(summary.own_credit || 0).toFixed(2);
+      if(familyEl && summary) familyEl.textContent = '₹' + Number(summary.family_credit || 0).toFixed(2);
+      if(familyWrap) familyWrap.style.display = summary && summary.is_family_account ? 'block' : 'none';
       if(!rows.length) {
           tb.innerHTML = '<tr><td colspan="5" style=\"text-align:center;color:var(--dim)">No ledger entries.</td></tr>';
           return;
       }
       tb.innerHTML = rows.map(r=>`<tr><td>${new Date(r.date).toLocaleString()}</td><td>${r.ref_type} - ${r.description}</td><td style="color:#ef4444">${r.debit>0?r.debit.toFixed(2):'-'}</td><td style="color:#22c55e">${r.credit>0?r.credit.toFixed(2):'-'}</td><td style="font-weight:600">₹${r.balance.toFixed(2)}</td></tr>`).join('');
+  }).catch(()=>{
+      if(ownEl) ownEl.textContent = '—';
+      if(familyEl) familyEl.textContent = '—';
+      tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--dim)">Failed to load ledger.</td></tr>';
   });
 }
 
@@ -2914,6 +2990,16 @@ function saveWaste(){
         <input type="number" id="ledger-amt" placeholder="Amount (₹)" style="width:120px;background:#252a40;border:1px solid var(--brd);border-radius:7px;padding:7px 10px;color:var(--tx)"/>
         <input type="text" id="ledger-desc" placeholder="Notes (Optional)" style="flex:1;background:#252a40;border:1px solid var(--brd);border-radius:7px;padding:7px 10px;color:var(--tx)"/>
         <button class="btn btn-acc" onclick="recordPayment()"><i class="fas fa-indian-rupee-sign"></i> Record Payment</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;flex-shrink:0;">
+        <div class="crd" style="padding:12px 14px;background:#181c2c;border:1px solid var(--brd);">
+            <div style="font-size:11px;color:var(--mt);margin-bottom:4px">Own Credit</div>
+            <div id="ledger-own-credit" style="font-size:18px;font-weight:700;color:#f59e0b">₹0.00</div>
+        </div>
+        <div id="ledger-family-summary" class="crd" style="padding:12px 14px;background:#181c2c;border:1px solid var(--brd);display:none;">
+            <div style="font-size:11px;color:var(--mt);margin-bottom:4px">Family Credit</div>
+            <div id="ledger-family-credit" style="font-size:18px;font-weight:700;color:#22c55e">₹0.00</div>
+        </div>
     </div>
     <div class="tw" style="overflow-y:auto;flex:1;">
         <table>
