@@ -385,6 +385,80 @@ def test_inventory_smoke(client):
     assert shelf_delete.status_code == 200
 
 
+def test_inventory_adjustment(client):
+    """Test inventory adjustment (damage/waste) workflow."""
+    medicine_id = unique_id("m", 9)
+    medicine_name = f"Adj Medicine {medicine_id[-4:]}"
+
+    # Create medicine with initial stock
+    medicine_create = client.post(
+        "/api/medicines",
+        json={
+            "id": medicine_id,
+            "n": medicine_name,
+            "g": "Paracetamol",
+            "c": "Tablet",
+            "p": 30,
+            "s": 100,
+            "batch": "ADJ-BATCH",
+            "expiry": "2027-12-31",
+            "p_rate": 20,
+            "p_packing": "1x10",
+            "s_packing": "1x10",
+            "p_gst": 5,
+            "s_gst": 5,
+            "disc": 0,
+            "offer": "",
+            "reorder": 10,
+            "max_qty": 200,
+            "shelf_id": "MAIN",
+        },
+    )
+    assert medicine_create.status_code == 200
+
+    # Verify that 'batches' is present in the medicine list
+    medicines = client.get("/api/medicines")
+    assert medicines.status_code == 200
+    medicine_list = get_json(medicines)
+    med = find_item(medicine_list, "id", medicine_id)
+    assert med is not None
+    assert "batches" in med
+    assert len(med["batches"]) > 0
+    batch = med["batches"][0]
+    assert batch["no"] == "ADJ-BATCH"
+    assert batch["qty"] == 100
+
+    # Adjust stock (deduct 5 for damage)
+    adjust_resp = client.post(
+        "/api/inventory/adjust",
+        json={
+            "batch_id": batch["id"],
+            "qty": -5,
+            "reason": "EXPIRED",
+            "remarks": "Test adjustment",
+        },
+    )
+    assert adjust_resp.status_code == 200
+    adjust_body = get_json(adjust_resp)
+    assert adjust_body["status"] == "success"
+    assert adjust_body["new_qty"] == 95
+
+    # Verify stock in medicine list
+    medicines_after = client.get("/api/medicines")
+    med_after = find_item(get_json(medicines_after), "id", medicine_id)
+    assert med_after["s"] == 95
+    assert med_after["batches"][0]["qty"] == 95
+
+    # Verify adjustments log
+    adjustments_resp = client.get("/api/inventory/adjustments")
+    assert adjustments_resp.status_code == 200
+    adjustments = get_json(adjustments_resp)
+    adj_entry = find_item(adjustments, "item_id", medicine_id)
+    assert adj_entry is not None
+    assert adj_entry["qty"] == -5
+    assert adj_entry["reason"] == "EXPIRED"
+
+
 def test_wanted_list_approval_workflow(client):
     """Test approval workflow for WantedList: approve -> mark ordered/failed with admin role."""
     med_id = unique_id("m", 9)

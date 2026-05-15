@@ -2867,7 +2867,7 @@ function openWaste(id){
     if(m.batches && m.batches.length > 0){
         batchSel.innerHTML = m.batches.map(b=>`<option value="${b.id}">${b.no} (Stock: ${b.qty})</option>`).join('');
     } else {
-        batchSel.innerHTML = `<option value="">Default Batch (Stock: ${m.s})</option>`;
+        batchSel.innerHTML = `<option value="">No batches available (Stock: ${m.s})</option>`;
     }
     mod.style.display='flex';
 }
@@ -2878,6 +2878,7 @@ function saveWaste(){
     const qty=parseInt(document.getElementById('waste-qty').value);
     const reason=document.getElementById('waste-reason').value;
     const remarks=document.getElementById('waste-remarks').value;
+    if(!batch_id){ alert('Please select a valid batch for adjustment'); return; }
     if(!qty || qty <= 0){ alert('Enter valid quantity'); return; }
     fetch(API+'/inventory/adjust',{
         method:'POST',

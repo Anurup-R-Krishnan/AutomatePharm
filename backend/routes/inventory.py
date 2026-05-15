@@ -84,6 +84,16 @@ def _item_to_compat(item: Item) -> dict:
         "shelf_id":   str(shelf_loc.location_id) if shelf_loc else "",
         "shelf_name": shelf_loc.location_name if shelf_loc else (item.rack_number or ""),
         "shelf_label": shelf_loc.location_name if shelf_loc else (item.rack_number or "Unassigned"),
+        # --- batches ---
+        "batches": [
+            {
+                "id": b.stock_batch_id,
+                "no": b.batch_no,
+                "qty": b.current_qty,
+                "expiry": str(b.expiry_date)
+            }
+            for b in StockBatch.query.filter_by(item_id=item.item_id).all()
+        ]
     }
 
 
@@ -514,6 +524,7 @@ def list_adjustments():
     return jsonify([{
         "id": a.adjustment_id,
         "date": a.adj_date.isoformat(),
+        "item_id": a.item_id,
         "item": i.item_name,
         "batch": b.batch_no,
         "qty": a.qty,
