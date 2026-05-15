@@ -44,10 +44,6 @@ def upgrade():
                existing_type=postgresql.JSONB(astext_type=sa.Text()),
                type_=sa.JSON(),
                existing_nullable=True)
-        batch_op.alter_column('verified_by',
-               existing_type=sa.UUID(),
-               type_=sa.String(length=36),
-               existing_nullable=True)
 
     with op.batch_alter_table('suppliers', schema=None) as batch_op:
         batch_op.alter_column('b2b_credentials',
@@ -81,10 +77,6 @@ def downgrade():
                existing_nullable=True)
 
     with op.batch_alter_table('prescription_ocr_logs', schema=None) as batch_op:
-        batch_op.alter_column('verified_by',
-               existing_type=sa.String(length=36),
-               type_=sa.UUID(),
-               existing_nullable=True)
         batch_op.alter_column('parsed_medicines',
                existing_type=sa.JSON(),
                type_=postgresql.JSONB(astext_type=sa.Text()),

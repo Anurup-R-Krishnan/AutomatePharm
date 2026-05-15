@@ -1,5 +1,6 @@
 """AI face detection event log model."""
 from datetime import datetime
+from sqlalchemy.dialects.postgresql import UUID
 from ..extensions import db
 
 class AiFaceLog(db.Model):
@@ -22,7 +23,7 @@ class PrescriptionOcrLog(db.Model):
     parsed_medicines = db.Column(db.JSON)
     confidence_score = db.Column(db.Numeric(5, 2))
     requires_human_verification = db.Column(db.Boolean, nullable=False, default=True)
-    verified_by = db.Column(db.String(36), db.ForeignKey('users.user_id'), nullable=True)
+    verified_by = db.Column(UUID(as_uuid=True), db.ForeignKey('users.user_id'), nullable=True)
     verified_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
