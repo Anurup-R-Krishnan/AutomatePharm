@@ -436,7 +436,7 @@ def cancel_bill_with_reason(bill_id):
 
     try:
         cart_items = [{"id": bi.item_id, "qty": bi.qty_sold} for bi in bill.items]
-        _apply_stock_delta(cart_items, +1)
+        _apply_stock_delta(bill.bill_id, cart_items, +1)
         bill.is_cancelled = True
         bill.cancel_reason = reason
         bill.cancelled_at = datetime.utcnow()
@@ -690,7 +690,7 @@ def delete_bill(bill_id):
             {"id": bi.item_id, "qty": bi.qty_sold}
             for bi in bill.items
         ]
-        _apply_stock_delta(cart_items, +1)
+        _apply_stock_delta(bill.bill_id, cart_items, +1)
 
         # Soft-delete via cancel
         bill.is_cancelled  = True
