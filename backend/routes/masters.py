@@ -233,7 +233,7 @@ def get_customers():
                 "total_spend": summary["total_spend"],
                 "address": row.address or "",
                 "email": "",
-                "face_vector": json.dumps(row.face_embedding.tolist()) if row.face_embedding is not None else "",
+                "face_vector": json.dumps(row.face_embedding) if row.face_embedding is not None else "",
                 "balance": summary["balance"],
                 "family_head_id": summary["family_head_id"],
                 "family_head_name": summary["family_head_name"],
