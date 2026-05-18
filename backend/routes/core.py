@@ -24,6 +24,11 @@ def dashboard():
     return render_template("dashboard.html", current_user=current_user)
 
 
+@core_bp.route("/face-scan")
+def face_scan():
+    return render_template("face_scan.html")
+
+
 @core_bp.route("/api/health", methods=["GET"])
 def api_health():
     med_count = db.session.query(Item).count()

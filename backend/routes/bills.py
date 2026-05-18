@@ -626,7 +626,8 @@ def save_bill():
 
         # Update customer totals
         payment_mode = data.get("pay", "cash").lower()
-        paid_amt = float(data.get("paid_amount", net))
+        default_paid = 0 if payment_mode == 'credit' else net
+        paid_amt = float(data.get("paid_amount", default_paid))
         outstanding = max(0, net - paid_amt)
         _adjust_customer(customer_name, customer_phone, outstanding, net, 1)
         

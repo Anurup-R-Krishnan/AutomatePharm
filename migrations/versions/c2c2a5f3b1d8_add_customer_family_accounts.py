@@ -17,15 +17,25 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column('customers', sa.Column('family_head_id', sa.Integer(), nullable=True))
-    op.add_column('customers', sa.Column('family_relation', sa.String(length=50), nullable=True))
-    op.create_foreign_key(
-        'fk_customers_family_head_id_customers',
-        'customers',
-        'customers',
-        ['family_head_id'],
-        ['customer_id'],
-    )
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    columns = [col['name'] for col in inspector.get_columns('customers')]
+    if 'family_head_id' not in columns:
+        op.add_column('customers', sa.Column('family_head_id', sa.Integer(), nullable=True))
+    if 'family_relation' not in columns:
+        op.add_column('customers', sa.Column('family_relation', sa.String(length=50), nullable=True))
+    
+    # Check foreign keys to see if the foreign key exists
+    fks = inspector.get_foreign_keys('customers')
+    fk_names = [fk['name'] for fk in fks if fk['name']]
+    if 'fk_customers_family_head_id_customers' not in fk_names:
+        op.create_foreign_key(
+            'fk_customers_family_head_id_customers',
+            'customers',
+            'customers',
+            ['family_head_id'],
+            ['customer_id'],
+        )
 
 
 def downgrade():
