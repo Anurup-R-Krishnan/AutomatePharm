@@ -124,7 +124,6 @@ def _purchase_to_compat(purchase: PurchaseInvoice) -> dict:
     """Serialize a PurchaseInvoice to the flat dict the frontend expects."""
     supplier = Supplier.query.get(purchase.supplier_id)
 
-    # Collect item names from line items
     item_names = []
     batch_no = ""
     expiry_str = ""
@@ -134,24 +133,91 @@ def _purchase_to_compat(purchase: PurchaseInvoice) -> dict:
             item_names.append(item.item_name)
         batch = StockBatch.query.get(li.stock_batch_id) if li.stock_batch_id else None
         if batch:
-            batch_no   = batch.batch_no
+            batch_no = batch.batch_no
             expiry_str = str(batch.expiry_date)
 
-    # status: map from model state to legacy strings
-    status = "Received"  # default — if it's in the DB it's received
+    status = str(purchase.remarks or "").strip() or "Received"
+    if status not in {"Pending", "Received", "Cancelled"}:
+        status = "Received"
 
     return {
-        "id":       f"P-{purchase.purchase_id}",
+        "id": f"P-{purchase.purchase_id}",
         "supplier": supplier.supplier_name if supplier else "Unknown",
-        "items":    ", ".join(item_names) or "—",
-        "amount":   float(purchase.net_amount),
-        "date":     str(purchase.invoice_date or purchase.created_at.date()),
-        "status":   status,
-        "batch":    batch_no,
-        "expiry":   expiry_str,
-        "photo":    "",
+        "items": ", ".join(item_names) or "-",
+        "amount": float(purchase.net_amount),
+        "date": str(purchase.invoice_date or purchase.created_at.date()),
+        "status": status,
+        "batch": batch_no,
+        "expiry": expiry_str,
+        "photo": "",
     }
 
+
+def _normalize_purchase_status(raw_status) -> str:
+    status = str(raw_status or "").strip() or "Received"
+    if status not in {"Pending", "Received", "Cancelled"}:
+        return "Received"
+    return status
+
+
+def _apply_purchase_receipt(
+    purchase: PurchaseInvoice,
+    location_id: int,
+    fallback_batch_no: str = "",
+    fallback_expiry_str: str = "",
+):
+    """Move a purchase into stock exactly once when it is received."""
+    for li in purchase.line_items:
+        item = Item.query.get(li.item_id)
+        if not item:
+            continue
+
+        qty = int(li.pkg_qty or 0)
+        if qty <= 0:
+            continue
+
+        batch = StockBatch.query.get(li.stock_batch_id) if li.stock_batch_id else None
+        batch_no = (batch.batch_no if batch else "") or fallback_batch_no or "__default__"
+
+        expiry_date = batch.expiry_date if batch and batch.expiry_date else date_type(2099, 12, 31)
+        if fallback_expiry_str:
+            try:
+                expiry_date = datetime.strptime(fallback_expiry_str, "%Y-%m-%d").date()
+            except ValueError:
+                pass
+
+        if not batch:
+            batch = StockBatch.query.filter_by(
+                item_id=item.item_id,
+                batch_no=batch_no,
+                location_id=location_id,
+            ).first()
+
+        if not batch:
+            batch = StockBatch(
+                item_id=item.item_id,
+                batch_no=batch_no,
+                expiry_date=expiry_date,
+                location_id=location_id,
+                manufacturer_id=item.manufacturer_id,
+                mrp=float(li.mrp_at_purchase or item.default_mrp or 0),
+                purchase_rate=float(li.purchase_rate_at_purchase or item.default_selling_price or 0),
+                opening_qty=0,
+                current_qty=0,
+                total_stock=0,
+            )
+            db.session.add(batch)
+            db.session.flush()
+        else:
+            batch.expiry_date = expiry_date
+
+        batch.current_qty = int(batch.current_qty or 0) + qty
+        batch.total_stock = int(batch.total_stock or 0) + qty
+        batch.purchase_rate = float(li.purchase_rate_at_purchase or batch.purchase_rate or 0)
+        batch.mrp = float(li.mrp_at_purchase or batch.mrp or 0)
+
+        if li.stock_batch_id != batch.stock_batch_id:
+            li.stock_batch_id = batch.stock_batch_id
 
 def _get_or_create_supplier(name: str) -> Supplier:
     """Find supplier by name (case-insensitive) or create a stub."""
@@ -235,6 +301,8 @@ def add_purchase():
         legacy_id = str(data.get("id", "")).strip()
         ref_no = legacy_id or f"PO-{int(datetime.utcnow().timestamp())}"
 
+        status = _normalize_purchase_status(data.get("status"))
+
         # Check if this purchase already exists (for INSERT OR REPLACE behaviour)
         existing = None
         if legacy_id.startswith("P-"):
@@ -242,8 +310,15 @@ def add_purchase():
             existing = PurchaseInvoice.query.get(real_id)
 
         if existing:
-            # Update status / photo only (the frontend uses PATCH-like POST)
-            # Nothing critical to update in new schema from status alone
+            previous_status = _normalize_purchase_status(existing.remarks)
+            existing.remarks = status
+            if previous_status != "Received" and status == "Received":
+                _apply_purchase_receipt(
+                    existing,
+                    loc_id,
+                    fallback_batch_no=str(data.get("batch", "")).strip(),
+                    fallback_expiry_str=str(data.get("expiry", "")).strip(),
+                )
             db.session.commit()
             return jsonify({"status": "success"})
 
@@ -266,7 +341,7 @@ def add_purchase():
             net_amount=amount,
             ac_amount=amount,
             user_id=user_id,
-            remarks=data.get("status", ""),
+            remarks=status,
         )
         db.session.add(purchase)
         db.session.flush()
@@ -320,40 +395,11 @@ def add_purchase():
                     except ValueError:
                         pass
 
-                batch = StockBatch.query.filter_by(
-                    item_id=matched_item.item_id,
-                    batch_no=batch_no,
-                    location_id=loc_id,
-                ).first()
-                if not batch:
-                    batch = StockBatch(
-                        item_id=matched_item.item_id,
-                        batch_no=batch_no,
-                        expiry_date=expiry_date,
-                        location_id=loc_id,
-                        manufacturer_id=matched_item.manufacturer_id,
-                        mrp=float(matched_item.default_mrp or 0),
-                        purchase_rate=float(effective_rate or matched_item.default_selling_price or 0),
-                        opening_qty=0,
-                        current_qty=0,
-                        total_stock=0,
-                    )
-                    db.session.add(batch)
-                    db.session.flush()
-
-                batch.current_qty = int(batch.current_qty or 0) + qty
-                batch.total_stock = int(batch.total_stock or 0) + qty
-                if effective_rate > 0:
-                    batch.purchase_rate = effective_rate
-                    batch.mrp = effective_rate
-                if expiry_str:
-                    batch.expiry_date = expiry_date
-
                 li = PurchaseInvoiceItem(
                     purchase_item_id=next_purchase_item_id,
                     purchase_id=purchase.purchase_id,
                     item_id=matched_item.item_id,
-                    stock_batch_id=batch.stock_batch_id,
+                    stock_batch_id=None,
                     pkg_qty=qty,
                     purchase_rate_at_purchase=float(effective_rate or matched_item.default_selling_price or 0),
                     mrp_at_purchase=float(matched_item.default_mrp or effective_rate or 0),
@@ -373,6 +419,14 @@ def add_purchase():
                 db.session.rollback()
                 return _json_error("No valid purchase line items provided", 400)
 
+            if status == "Received":
+                first_line = line_items[0] if line_items else {}
+                _apply_purchase_receipt(
+                    purchase,
+                    loc_id,
+                    fallback_batch_no=str(first_line.get("batch", "")).strip(),
+                    fallback_expiry_str=str(first_line.get("expiry", "")).strip(),
+                )
             db.session.commit()
             return jsonify({"status": "success"})
 
@@ -391,39 +445,11 @@ def add_purchase():
                 if not matched_item:
                     continue
 
-                # find or create a batch
-                batch = None
-                if batch_no:
-                    expiry_date = None
-                    if expiry_str:
-                        try:
-                            expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d").date()
-                        except ValueError:
-                            expiry_date = date_type(2099, 12, 31)
-                    batch = StockBatch.query.filter_by(
-                        item_id=matched_item.item_id, batch_no=batch_no
-                    ).first()
-                    if not batch:
-                        batch = StockBatch(
-                            item_id=matched_item.item_id,
-                            batch_no=batch_no,
-                            expiry_date=expiry_date or date_type(2099, 12, 31),
-                            location_id=loc_id,
-                            manufacturer_id=matched_item.manufacturer_id,
-                            mrp=float(matched_item.default_mrp or 0),
-                            purchase_rate=float(matched_item.default_selling_price or 0),
-                            opening_qty=0,
-                            current_qty=0,
-                            total_stock=0,
-                        )
-                        db.session.add(batch)
-                        db.session.flush()
-
                 li = PurchaseInvoiceItem(
                     purchase_item_id=next_purchase_item_id,
                     purchase_id=purchase.purchase_id,
                     item_id=matched_item.item_id,
-                    stock_batch_id=batch.stock_batch_id if batch else None,
+                    stock_batch_id=None,
                     pkg_qty=1,
                     purchase_rate_at_purchase=float(matched_item.default_selling_price or 0),
                     mrp_at_purchase=float(matched_item.default_mrp or 0),
@@ -439,6 +465,13 @@ def add_purchase():
                 db.session.add(li)
                 next_purchase_item_id += 1
 
+        if status == "Received":
+            _apply_purchase_receipt(
+                purchase,
+                loc_id,
+                fallback_batch_no=batch_no,
+                fallback_expiry_str=expiry_str,
+            )
         db.session.commit()
         return jsonify({"status": "success"})
 
@@ -448,3 +481,4 @@ def add_purchase():
     except Exception as err:
         db.session.rollback()
         return _json_error("Failed to save purchase", 500, str(err))
+

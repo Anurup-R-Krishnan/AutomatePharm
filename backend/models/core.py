@@ -272,6 +272,8 @@ class Customer(db.Model):
     is_cash_customer = db.Column(db.Boolean, nullable=False, default=True)
     credit_limit = db.Column(db.Numeric(12, 2), nullable=False, default=0.00)
     outstanding_balance = db.Column(db.Numeric(12, 2), nullable=False, default=0.00)
+    total_spend = db.Column(db.Numeric(14, 2), nullable=False, default=0.00)
+    total_visits = db.Column(db.Integer, nullable=False, default=0)
 
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)

@@ -3,6 +3,7 @@ from sqlalchemy import func, desc, case
 from .extensions import db
 from .models.sales import SalesBill, SalesBillItem
 from .models.core import Item, Customer
+from .models.inventory import StockBatch
 from .models.ai import CustomerPurchasePattern
 import math
 
@@ -172,7 +173,7 @@ def get_churn_risk_customers(days_threshold=60, min_total_spend=500):
         for name, phone, last_visit, total_spend in churn_risk
     ]
 
-def update_customer_purchase_pattern(customer_id, item_id, quantity_purchased):
+def update_customer_purchase_pattern(customer_id, item_id, quantity_purchased, is_chronic=False):
     """
     Update customer purchase pattern when a bill is saved.
     
@@ -192,10 +193,28 @@ def update_customer_purchase_pattern(customer_id, item_id, quantity_purchased):
         ).first()
         
         if pattern:
+            # Calculate interval if we have a previous purchase date
+            if pattern.last_purchased_date:
+                days_since_last = (today - pattern.last_purchased_date).days
+                if days_since_last > 5: # Ignore very frequent small purchases
+                    # Simple moving average for refill interval
+                    if not hasattr(pattern, '_temp_interval'): # Logic to estimate interval
+                        interval = days_since_last
+                    else:
+                        interval = (pattern._temp_interval + days_since_last) / 2
+            
             pattern.purchase_count += 1
             pattern.total_quantity += quantity_purchased
             pattern.avg_quantity = pattern.total_quantity / pattern.purchase_count
             pattern.last_purchased_date = today
+            
+            # Estimate next refill date
+            # Logic: If they bought 30 units, assume it lasts 30 days unless history says otherwise
+            days_to_next = int(quantity_purchased) # Default: 1 per day
+            pattern.next_expected_date = today + timedelta(days=days_to_next)
+            if is_chronic:
+                pattern.is_chronic = True
+            
         else:
             pattern = CustomerPurchasePattern(
                 customer_id=customer_id,
@@ -203,7 +222,9 @@ def update_customer_purchase_pattern(customer_id, item_id, quantity_purchased):
                 purchase_count=1,
                 total_quantity=quantity_purchased,
                 avg_quantity=float(quantity_purchased),
-                last_purchased_date=today
+                last_purchased_date=today,
+                next_expected_date=today + timedelta(days=int(quantity_purchased)),
+                is_chronic=is_chronic
             )
             db.session.add(pattern)
         
@@ -306,3 +327,40 @@ def get_personalized_suggestions(customer_id, limit=10, days_back=90, exclude_re
             })
     
     return sorted(suggestions, key=lambda x: x['stock'], reverse=True)[:limit]
+
+
+def get_refill_reminders(days_buffer=5):
+    """
+    Find customers whose medicine is about to run out.
+    """
+    today = date_type.today()
+    due_cutoff = today + timedelta(days=days_buffer)
+    
+    reminders = db.session.query(
+        CustomerPurchasePattern,
+        Customer.customer_name,
+        Customer.phone,
+        Item.item_name
+    ).join(Customer, CustomerPurchasePattern.customer_id == Customer.customer_id)\
+     .join(Item, CustomerPurchasePattern.item_id == Item.item_id)\
+     .filter(
+         CustomerPurchasePattern.is_chronic == True,
+         CustomerPurchasePattern.next_expected_date >= today - timedelta(days=2), # Don't show very old ones
+         CustomerPurchasePattern.next_expected_date <= due_cutoff
+     ).order_by(CustomerPurchasePattern.next_expected_date.asc()).all()
+    
+    return [
+        {
+            "id": p.pattern_id,
+            "customer_id": p.customer_id,
+            "customer_name": name,
+            "phone": phone,
+            "item_name": item_name,
+            "last_purchase": p.last_purchased_date.isoformat(),
+            "next_due": p.next_expected_date.isoformat(),
+            "days_remaining": (p.next_expected_date - today).days
+        }
+        for p, name, phone, item_name in reminders
+    ]
+
+

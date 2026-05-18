@@ -39,6 +39,7 @@ class SalesBill(db.Model):
     is_return = db.Column(db.Boolean, nullable=False, default=False)
     original_bill_id = db.Column(db.Integer, db.ForeignKey('sales_bills.bill_id'))
     remarks = db.Column(db.Text)
+    payment_mode = db.Column(db.String(20), nullable=False, default='cash')
     prescription_base64 = db.Column(db.Text)  # Stores the Base64 image/PDF
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)

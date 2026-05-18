@@ -5,10 +5,10 @@ from sqlalchemy import func
 
 from ..extensions import db
 from .auth import login_required
-from ..models.sales import SalesBill, SalesBillItem, BillingVoucher
+from ..models.sales import SalesBill, SalesBillItem, BillingVoucher, ReceiptPayment
 from ..models.core import Customer, Doctor, Item, Location
-from ..models.inventory import StockBatch
-from ..models.lookups import BillType
+from ..models.inventory import StockBatch, StockLedger
+from ..models.lookups import BillType, TxnType, PaymentMode
 from ..analytics_logic import update_customer_purchase_pattern
 from ..services.whatsapp import send_whatsapp_receipt
 
@@ -126,7 +126,7 @@ def _bill_to_compat(bill: SalesBill) -> dict:
     }
 
 
-def _adjust_customer(name: str, phone: str, total_delta: float, visit_delta: int,
+def _adjust_customer(name: str, phone: str, outstanding_delta: float, spend_delta: float, visit_delta: int,
                      allow_insert: bool = True) -> None:
     """Update or create a Customer record with aggregated sales stats."""
     if not name:
@@ -136,32 +136,100 @@ def _adjust_customer(name: str, phone: str, total_delta: float, visit_delta: int
     ).first()
 
     if customer:
-        customer.outstanding_balance = max(0, float(customer.outstanding_balance or 0) + total_delta)
+        customer.outstanding_balance = max(0, float(customer.outstanding_balance or 0) + outstanding_delta)
+        # Always update total spend regardless of payment mode
+        customer.total_spend = float(customer.total_spend or 0) + spend_delta
+        customer.total_visits = (customer.total_visits or 0) + visit_delta
     elif allow_insert:
         customer = Customer(
             customer_name=name.strip(),
             phone=phone or "",
             is_cash_customer=True,
+            outstanding_balance=outstanding_delta,
+            total_spend=spend_delta,
+            total_visits=visit_delta
         )
         db.session.add(customer)
     db.session.flush()
 
 
-def _apply_stock_delta(items: list, multiplier: int) -> None:
-    """Adjust StockBatch.current_qty for each item in a bill."""
+def _cancel_bill_record(bill: SalesBill, reason: str) -> None:
+    cart_items = [{"id": bi.item_id, "qty": bi.qty_sold} for bi in bill.items]
+    _apply_stock_delta(bill.bill_id, cart_items, +1)
+
+    if bill.customer_id:
+        customer = Customer.query.get(bill.customer_id)
+        if customer:
+            customer.outstanding_balance = max(
+                0,
+                float(customer.outstanding_balance or 0) - float(bill.net_amount or 0),
+            )
+
+    bill.is_cancelled = True
+    bill.cancel_reason = reason
+    bill.cancelled_at = datetime.utcnow()
+
+
+def _apply_stock_delta(bill_id: int, items: list, multiplier: int) -> None:
+    """Adjust StockBatch.current_qty for each item in a bill using FIFO logic for sales."""
+    txn_type_code = "SALE" if multiplier < 0 else "RETURN"
+    txn_type = TxnType.query.filter_by(txn_type_code=txn_type_code).first()
+    if not txn_type:
+        txn_type = TxnType(txn_type_code=txn_type_code, txn_type_name="Sales" if multiplier < 0 else "Sales Return")
+        db.session.add(txn_type)
+        db.session.flush()
+
     for cart_item in items:
         item_id = str(cart_item.get("id", "")).strip()
-        qty = int(cart_item.get("qty", 0) or 0)
-        if not item_id or qty <= 0:
+        qty_to_adjust = int(cart_item.get("qty", 0) or 0)
+        if not item_id or qty_to_adjust <= 0:
             continue
-        batch = (
-            StockBatch.query
-            .filter_by(item_id=item_id)
-            .order_by(StockBatch.stock_batch_id.desc())
-            .first()
-        )
-        if batch:
-            batch.current_qty = max(0, batch.current_qty + qty * multiplier)
+
+        if multiplier < 0:
+            # --- SALES (FIFO Logic) ---
+            # --- SALES (Simplified) ---
+            batch = (
+                StockBatch.query.filter_by(item_id=item_id)
+                .order_by(StockBatch.expiry_date.asc(), StockBatch.stock_batch_id.asc())
+                .first()
+            )
+
+            if batch:
+                deduct = qty_to_adjust
+                batch.current_qty -= deduct
+                
+                # Log to StockLedger
+                ledger = StockLedger(
+                    stock_batch_id=batch.stock_batch_id,
+                    item_id=batch.item_id,
+                    txn_type_id=txn_type.txn_type_id,
+                    txn_date=date_type.today(),
+                    qty_in=0,
+                    qty_out=deduct,
+                    balance_qty=batch.current_qty,
+                    ref_type="SALE",
+                    ref_id=bill_id
+                )
+                db.session.add(ledger)
+
+
+        else:
+            # --- RETURNS (Restore to Newest Batch) ---
+            batch = StockBatch.query.filter_by(item_id=item_id).order_by(StockBatch.expiry_date.desc()).first()
+            if batch:
+                batch.current_qty += qty_to_adjust
+                ledger = StockLedger(
+                    stock_batch_id=batch.stock_batch_id,
+                    item_id=batch.item_id,
+                    txn_type_id=txn_type.txn_type_id,
+                    txn_date=date_type.today(),
+                    qty_in=qty_to_adjust,
+                    qty_out=0,
+                    balance_qty=batch.current_qty,
+                    ref_type="RETURN",
+                    ref_id=bill_id
+                )
+                db.session.add(ledger)
     db.session.flush()
 
 
@@ -218,12 +286,6 @@ def debit_note_page():
 @login_required
 def sales_receipt_page():
     return render_template("SalesReceipt.html", current_user=_current_page_user())
-
-
-@bills_bp.route("/billing/cancel-bill", methods=["GET"])
-@login_required
-def cancel_bill_page():
-    return render_template("cancelbill.html", current_user=_current_page_user())
 
 
 @bills_bp.route("/api/billing/vouchers", methods=["GET"])
@@ -390,11 +452,7 @@ def cancel_bill_with_reason(bill_id):
     reason = str(data.get("reason", "")).strip() or "Cancelled via cancel bill screen"
 
     try:
-        cart_items = [{"id": bi.item_id, "qty": bi.qty_sold} for bi in bill.items]
-        _apply_stock_delta(cart_items, +1)
-        bill.is_cancelled = True
-        bill.cancel_reason = reason
-        bill.cancelled_at = datetime.utcnow()
+        _cancel_bill_record(bill, reason)
         db.session.commit()
         return jsonify({"status": "success", "id": bill_id, "reason": reason})
     except Exception as err:
@@ -478,6 +536,12 @@ def save_bill():
                 )
                 db.session.add(customer)
                 db.session.flush()
+            
+            if "is_chronic" in data:
+                print(f"UPDATING CHRONIC STATUS for {customer.customer_name}: {data['is_chronic']}")
+                customer.is_chronic_patient = (data["is_chronic"] is True)
+                db.session.add(customer)
+                db.session.flush()
 
         # Resolve or create doctor
         doctor_name = str(data.get("doctor", "Self")).strip()
@@ -519,61 +583,86 @@ def save_bill():
             igst_amount=0,
             round_off=0,
             net_amount=net,
+            payment_mode=data.get("pay", "cash").lower(),
             prescription_base64=data.get("prescription") or data.get("rx"),
         )
         db.session.add(bill)
         db.session.flush()  # get bill.bill_id
 
-        # Create bill line items
+        # Create bill line items using FIFO batches
         for cart_item in cart_items:
             item_id = str(cart_item.get("id", "")).strip()
-            qty     = int(cart_item.get("qty", 1) or 1)
-            price   = float(cart_item.get("p", 0) or 0)
+            qty_needed = int(cart_item.get("qty", 1) or 1)
+            price = float(cart_item.get("p", 0) or 0)
             item_obj = Item.query.get(item_id)
+            if not item_obj: continue
 
-            batch = (
-                StockBatch.query
-                .filter_by(item_id=item_id)
-                .order_by(StockBatch.stock_batch_id.desc())
-                .first()
-            )
-            if not batch or not item_obj:
-                continue  # skip items not in inventory
+            # Find the primary batch for this item
+            batch = StockBatch.query.filter_by(item_id=item_id).order_by(StockBatch.expiry_date.asc()).first()
+            if batch:
+                bill_item = SalesBillItem(
+                    bill_id=bill.bill_id, 
+                    stock_batch_id=batch.stock_batch_id, 
+                    item_id=item_id, 
+                    qty_sold=qty_needed, 
+                    mrp_at_sale=float(batch.mrp), 
+                    purchase_rate_at_sale=float(batch.purchase_rate), 
+                    selling_price_at_sale=price, 
+                    discount_pct=0, 
+                    net_rate=price, 
+                    gst_slab_id=item_obj.sales_gst_slab_id, 
+                    cgst_pct=2.5, 
+                    sgst_pct=2.5, 
+                    igst_pct=0, 
+                    gst_amount=round(price * qty_needed * 0.05, 2), 
+                    profit_pct=0, 
+                    value=round(price * qty_needed, 2)
+                )
+                db.session.add(bill_item)
 
-            bill_item = SalesBillItem(
-                bill_id=bill.bill_id,
-                stock_batch_id=batch.stock_batch_id,
-                item_id=item_id,
-                qty_sold=qty,
-                mrp_at_sale=float(batch.mrp),
-                purchase_rate_at_sale=float(batch.purchase_rate),
-                selling_price_at_sale=price,
-                discount_pct=0,
-                net_rate=price,
-                gst_slab_id=item_obj.sales_gst_slab_id,
-                cgst_pct=2.5,
-                sgst_pct=2.5,
-                igst_pct=0,
-                gst_amount=round(price * qty * 0.05, 2),
-                profit_pct=0,
-                value=round(price * qty, 2),
-            )
-            db.session.add(bill_item)
 
         # Deduct stock
-        _apply_stock_delta(cart_items, -1)
+        _apply_stock_delta(bill.bill_id, cart_items, -1)
 
         # Update customer totals
-        _adjust_customer(customer_name, customer_phone, net, 1)
-
+        payment_mode = data.get("pay", "cash").lower()
+        default_paid = 0 if payment_mode == 'credit' else net
+        paid_amt = float(data.get("paid_amount", default_paid))
+        outstanding = max(0, net - paid_amt)
+        _adjust_customer(customer_name, customer_phone, outstanding, net, 1)
+        
+        # If any amount was paid, record a ReceiptPayment
+        if paid_amt > 0 and customer:
+            pm_code = payment_mode.upper()
+            if pm_code == "CREDIT": pm_code = "CASH" # Default to cash if they paid something on a credit bill
+            
+            pm_obj = PaymentMode.query.filter(func.upper(PaymentMode.payment_mode_code) == pm_code).first()
+            if not pm_obj:
+                pm_obj = PaymentMode.query.filter_by(payment_mode_code="CASH").first()
+                
+            if pm_obj:
+                payment = ReceiptPayment(
+                    customer_id=customer.customer_id,
+                    bill_id=bill.bill_id,
+                    receipt_date=now.date(),
+                    amount=paid_amt,
+                    payment_mode_id=pm_obj.payment_mode_id,
+                    user_id=user_id,
+                    remarks=f"Partial/Full payment for Bill #{bill.bill_no}"
+                )
+                db.session.add(payment)
+        
+        # Explicitly update chronic status again to be sure
+        target_cust = None
         db.session.commit()
 
         if customer:
             for cart_item in cart_items:
                 item_id = str(cart_item.get("id", "")).strip()
                 qty = int(cart_item.get("qty", 1) or 1)
+                is_chr = bool(cart_item.get("is_chronic", False))
                 if item_id and qty > 0:
-                    update_customer_purchase_pattern(customer.customer_id, item_id, qty)
+                    update_customer_purchase_pattern(customer.customer_id, item_id, qty, is_chronic=is_chr)
         
         db.session.commit()
 
@@ -598,7 +687,17 @@ def save_bill():
             except Exception:
                 pass  # non-critical
 
-        return jsonify({"status": "success", "id": f"B-{bill.bill_id}"})
+        # Fetch latest summary if customer exists
+        customer_summary = None
+        if customer:
+            from .masters import _family_summary
+            customer_summary = _family_summary(customer)
+
+        return jsonify({
+            "status": "success", 
+            "id": f"B-{bill.bill_id}",
+            "customer": customer_summary
+        })
 
     except Exception as err:
         db.session.rollback()
@@ -644,17 +743,7 @@ def delete_bill(bill_id):
         return _json_error("Bill not found", 404, {"id": bill_id})
 
     try:
-        # Restore stock for all items in this bill
-        cart_items = [
-            {"id": bi.item_id, "qty": bi.qty_sold}
-            for bi in bill.items
-        ]
-        _apply_stock_delta(cart_items, +1)
-
-        # Soft-delete via cancel
-        bill.is_cancelled  = True
-        bill.cancel_reason = "Deleted via API"
-        bill.cancelled_at  = datetime.utcnow()
+        _cancel_bill_record(bill, "Deleted via API")
 
         db.session.commit()
         return jsonify({"status": "success", "deleted": bill_id})

@@ -24,23 +24,7 @@ class AuditLog(db.Model):
     )
 
 
-class SmsLog(db.Model):
-    __tablename__ = 'sms_log'
 
-    sms_id = db.Column(db.Integer, primary_key=True)
-    recipient_phone = db.Column(db.String(20), nullable=False)
-    message = db.Column(db.Text, nullable=False)
-    sent_at = db.Column(db.DateTime)
-    status = db.Column(db.String(10), nullable=False)
-    ref_type = db.Column(db.String(30))
-    ref_id = db.Column(db.Integer)
-    retry_count = db.Column(db.Integer, nullable=False, default=0)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    __table_args__ = (
-        db.CheckConstraint("status IN ('SENT','PENDING','FAILED')", name='sms_status_check'),
-    )
 
 
 class SystemSetting(db.Model):

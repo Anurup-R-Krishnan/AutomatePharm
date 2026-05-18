@@ -385,6 +385,80 @@ def test_inventory_smoke(client):
     assert shelf_delete.status_code == 200
 
 
+def test_inventory_adjustment(client):
+    """Test inventory adjustment (damage/waste) workflow."""
+    medicine_id = unique_id("m", 9)
+    medicine_name = f"Adj Medicine {medicine_id[-4:]}"
+
+    # Create medicine with initial stock
+    medicine_create = client.post(
+        "/api/medicines",
+        json={
+            "id": medicine_id,
+            "n": medicine_name,
+            "g": "Paracetamol",
+            "c": "Tablet",
+            "p": 30,
+            "s": 100,
+            "batch": "ADJ-BATCH",
+            "expiry": "2027-12-31",
+            "p_rate": 20,
+            "p_packing": "1x10",
+            "s_packing": "1x10",
+            "p_gst": 5,
+            "s_gst": 5,
+            "disc": 0,
+            "offer": "",
+            "reorder": 10,
+            "max_qty": 200,
+            "shelf_id": "MAIN",
+        },
+    )
+    assert medicine_create.status_code == 200
+
+    # Verify that 'batches' is present in the medicine list
+    medicines = client.get("/api/medicines")
+    assert medicines.status_code == 200
+    medicine_list = get_json(medicines)
+    med = find_item(medicine_list, "id", medicine_id)
+    assert med is not None
+    assert "batches" in med
+    assert len(med["batches"]) > 0
+    batch = med["batches"][0]
+    assert batch["no"] == "ADJ-BATCH"
+    assert batch["qty"] == 100
+
+    # Adjust stock (deduct 5 for damage)
+    adjust_resp = client.post(
+        "/api/inventory/adjust",
+        json={
+            "batch_id": batch["id"],
+            "qty": -5,
+            "reason": "EXPIRED",
+            "remarks": "Test adjustment",
+        },
+    )
+    assert adjust_resp.status_code == 200
+    adjust_body = get_json(adjust_resp)
+    assert adjust_body["status"] == "success"
+    assert adjust_body["new_qty"] == 95
+
+    # Verify stock in medicine list
+    medicines_after = client.get("/api/medicines")
+    med_after = find_item(get_json(medicines_after), "id", medicine_id)
+    assert med_after["s"] == 95
+    assert med_after["batches"][0]["qty"] == 95
+
+    # Verify adjustments log
+    adjustments_resp = client.get("/api/inventory/adjustments")
+    assert adjustments_resp.status_code == 200
+    adjustments = get_json(adjustments_resp)
+    adj_entry = find_item(adjustments, "item_id", medicine_id)
+    assert adj_entry is not None
+    assert adj_entry["qty"] == -5
+    assert adj_entry["reason"] == "EXPIRED"
+
+
 def test_wanted_list_approval_workflow(client):
     """Test approval workflow for WantedList: approve -> mark ordered/failed with admin role."""
     med_id = unique_id("m", 9)
@@ -742,7 +816,7 @@ def test_customer_family_account_flow(client):
         json={
             "cust": family_member_name,
             "phone": "9000000102",
-            "pay": "cash",
+            "pay": "credit",
             "sub": 100,
             "disc": 0,
             "tax": 0,
@@ -762,7 +836,9 @@ def test_customer_family_account_flow(client):
 
     family_ledger = client.get(f"/api/customers/{head['id']}/ledger")
     assert family_ledger.status_code == 200
-    ledger_rows = get_json(family_ledger)
+    ledger_body = get_json(family_ledger)
+    assert isinstance(ledger_body, dict)
+    ledger_rows = ledger_body["entries"]
     assert len(ledger_rows) >= 2
     assert any(row["ref_id"] == bill_id for row in ledger_rows)
     assert any("Family payment" in row["description"] for row in ledger_rows)
@@ -931,7 +1007,10 @@ def test_purchases_and_masters_smoke(client):
 
     customer_ledger = client.get(f"/api/customers/{customer_id}/ledger")
     assert customer_ledger.status_code == 200
-    assert isinstance(get_json(customer_ledger), list)
+    ledger_body = get_json(customer_ledger)
+    assert isinstance(ledger_body, dict)
+    assert "entries" in ledger_body
+    assert isinstance(ledger_body["entries"], list)
 
     payment = client.post(
         f"/api/customers/{customer_id}/payment",
@@ -946,113 +1025,7 @@ def test_purchases_and_masters_smoke(client):
     assert doctor_delete.status_code == 200
 
 
-def test_communications_and_sms_smoke(client):
-    comm_name = f"Comm Template {unique_id('', 6)}"
-    sms_name = f"SMS Template {unique_id('', 6)}"
-    message_id = unique_id("sms-", 8)
 
-    comm_list = client.get("/api/communications/templates")
-    assert comm_list.status_code == 200
-    assert isinstance(get_json(comm_list), list)
-
-    comm_create = client.post(
-        "/api/communications/templates",
-        json={"name": comm_name, "content": "Hello {{customer_name}}", "is_active": 1},
-    )
-    assert comm_create.status_code == 200
-    comm_body = get_json(comm_create)
-    assert comm_body["status"] == "success"
-    comm_id = comm_body["id"]
-
-    comm_update = client.put(
-        f"/api/communications/templates/{comm_id}",
-        json={"name": f"{comm_name} Updated", "content": "Updated content", "is_active": 1},
-    )
-    assert comm_update.status_code == 200
-    assert get_json(comm_update)["status"] == "success"
-
-    comm_logs = client.get("/api/communications/logs")
-    assert comm_logs.status_code == 200
-    assert isinstance(get_json(comm_logs), list)
-
-    comm_delete = client.delete(f"/api/communications/templates/{comm_id}")
-    assert comm_delete.status_code == 200
-    assert get_json(comm_delete)["status"] == "success"
-
-    sms_templates = client.get("/api/sms/templates")
-    assert sms_templates.status_code == 200
-    assert isinstance(get_json(sms_templates), list)
-
-    sms_template_create = client.post(
-        "/api/sms/templates",
-        json={
-            "id": sms_name,
-            "name": sms_name,
-            "body": "Hello {customer_name}, your bill is ready.",
-            "message_type": "custom",
-            "active": True,
-        },
-    )
-    assert sms_template_create.status_code == 201
-    sms_template_body = get_json(sms_template_create)
-    assert sms_template_body["id"] == sms_name
-
-    sms_template_update = client.patch(
-        f"/api/sms/templates/{sms_name}",
-        json={"name": f"{sms_name} Updated", "body": "Updated body", "active": True},
-    )
-    assert sms_template_update.status_code == 200
-    assert get_json(sms_template_update)["id"] == sms_name
-
-    sms_message_create = client.post(
-        "/api/sms/messages",
-        json={
-            "id": message_id,
-            "recipient_phone": "9000000002",
-            "customer_id": "1",
-            "customer_name": "Smoke Customer",
-            "bill_id": "1",
-            "template_id": sms_name,
-            "auto_send": False,
-            "body": "Test SMS body",
-        },
-    )
-    assert sms_message_create.status_code == 201
-    sms_message_body = get_json(sms_message_create)
-    assert sms_message_body["id"] == message_id
-    assert sms_message_body["send_status"] == "queued"
-
-    sms_messages = client.get("/api/sms/messages")
-    assert sms_messages.status_code == 200
-    sms_message_list = get_json(sms_messages)
-    assert find_item(sms_message_list, "id", message_id) is not None
-
-    sms_message_update = client.patch(
-        f"/api/sms/messages/{message_id}",
-        json={"body": "Updated SMS body", "send_status": "queued"},
-    )
-    assert sms_message_update.status_code == 200
-    assert get_json(sms_message_update)["id"] == message_id
-
-    sms_message_retry = client.post(f"/api/sms/messages/{message_id}/retry")
-    assert sms_message_retry.status_code == 200
-    assert get_json(sms_message_retry)["id"] == message_id
-
-    sms_message_send = client.post(f"/api/sms/messages/{message_id}/send")
-    assert sms_message_send.status_code == 200
-    assert get_json(sms_message_send)["id"] == message_id
-
-    sms_by_customer = client.get("/api/sms/messages/by-customer/1")
-    assert sms_by_customer.status_code == 200
-    assert isinstance(get_json(sms_by_customer), list)
-
-    sms_by_bill = client.get("/api/sms/messages/by-bill/1")
-    assert sms_by_bill.status_code == 200
-    assert isinstance(get_json(sms_by_bill), list)
-
-    sms_template_delete = client.delete(f"/api/sms/templates/{sms_name}")
-    assert sms_template_delete.status_code == 200
-    assert get_json(sms_template_delete)["status"] == "success"
 
 
 def test_personalized_medicine_suggestions(client):
