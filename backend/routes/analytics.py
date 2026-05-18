@@ -7,7 +7,9 @@ from ..analytics_logic import (
     get_churn_risk_customers,
     get_customer_lifetime_value,
     get_dynamic_stockout_risk,
-    get_refill_reminders
+    get_refill_reminders,
+    get_staff_performance_summary,
+    get_staff_detailed_performance
 )
 
 analytics_bp = Blueprint("analytics", __name__)
@@ -54,5 +56,25 @@ def refill_reminders():
         days = int(request.args.get("days", 5))
         data = get_refill_reminders(days_buffer=days)
         return jsonify(data)
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@analytics_bp.route("/api/analytics/staff-summary", methods=["GET"])
+@role_required("admin", "manager")
+def staff_summary():
+    try:
+        data = get_staff_performance_summary()
+        return jsonify({"status": "success", "data": data})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@analytics_bp.route("/api/analytics/staff/<int:staff_id>", methods=["GET"])
+@role_required("admin", "manager")
+def staff_details(staff_id):
+    try:
+        data = get_staff_detailed_performance(staff_id)
+        if not data:
+            return jsonify({"status": "error", "message": "Staff not found"}), 404
+        return jsonify({"status": "success", "data": data})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
