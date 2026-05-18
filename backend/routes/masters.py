@@ -321,11 +321,14 @@ def add_customer():
     try:
         customer = None
         customer_id = data.get("id")
+        is_new = False
         if customer_id:
             customer = Customer.query.get(customer_id)
         if not customer:
             customer = Customer(customer_name=data["name"], phone=data["phone"])
             db.session.add(customer)
+            db.session.flush()
+            is_new = True
 
         family_head_id = data.get("family_head_id")
         if family_head_id in (None, "", "null"):
