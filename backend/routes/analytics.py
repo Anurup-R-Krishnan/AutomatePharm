@@ -5,6 +5,8 @@ from ..analytics_logic import (
     get_top_moving_items, 
     get_market_basket_analysis, 
     get_churn_risk_customers,
+    get_customer_lifetime_value,
+    get_dynamic_stockout_risk,
     get_refill_reminders
 )
 
@@ -19,6 +21,8 @@ def analytics_summary():
         top_items = get_top_moving_items()
         basket = get_market_basket_analysis()
         churn = get_churn_risk_customers()
+        clv_rfm = get_customer_lifetime_value()
+        stockout_risk = get_dynamic_stockout_risk()
         refills = get_refill_reminders()
         
         return jsonify({
@@ -27,6 +31,8 @@ def analytics_summary():
             "top_moving_items": top_items,
             "market_basket": basket,
             "churn_risk": churn,
+            "clv_rfm": clv_rfm,
+            "stockout_risk": stockout_risk,
             "refill_reminders": refills
         })
     except Exception as e:
