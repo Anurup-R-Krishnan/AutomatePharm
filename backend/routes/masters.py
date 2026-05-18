@@ -31,6 +31,106 @@ def required_fields(payload: dict, fields: list[str]) -> list[str]:
     return missing
 
 
+@masters_bp.route("/api/customers/face-match", methods=["POST"])
+def face_match():
+    from ..models.ai import AiFaceLog
+    data = request.get_json(silent=True) or {}
+    face_vector = data.get("face_vector")
+
+    if not face_vector or not isinstance(face_vector, list) or len(face_vector) != 128:
+        return json_error("Invalid face_vector. Expected 128-dim list of floats.")
+
+    # Log attempt
+    log_entry = AiFaceLog(
+        camera_id="F4-counter",
+        confidence_score=0.0,
+        is_fraud_alert=False,
+        action_triggered="recognition_attempt"
+    )
+    db.session.add(log_entry)
+
+    customers = Customer.query.filter(Customer.face_embedding.isnot(None), Customer.is_active.is_(True)).all()
+
+    best_match = None
+    min_dist = float('inf')
+    threshold = 0.45
+
+    for c in customers:
+        try:
+            stored_vector = c.face_embedding
+            if not stored_vector or len(stored_vector) != 128:
+                continue
+
+            # Euclidean distance
+            dist = sum((a - b) ** 2 for a, b in zip(face_vector, stored_vector)) ** 0.5
+
+            if dist < min_dist:
+                min_dist = dist
+                best_match = c
+        except Exception as e:
+            print(f"Distance calculation error for customer {c.customer_id}: {e}")
+            continue
+
+    if best_match and min_dist < threshold:
+        # Check WantedList (Fraud/Wanted Check)
+        from ..models.ai import WantedList
+        wanted_entry = WantedList.query.filter_by(customer_id=best_match.customer_id).first()
+        is_fraud = wanted_entry is not None
+        wanted_reason = wanted_entry.reason or "No reason provided" if is_fraud else ""
+
+        log_entry.customer_id = best_match.customer_id
+        log_entry.confidence_score = round(1.0 - min_dist, 4)
+        log_entry.is_fraud_alert = is_fraud
+        log_entry.action_triggered = "match_found"
+        db.session.commit()
+
+        # Get last purchase
+        last_bill = SalesBill.query.filter(SalesBill.customer_id == best_match.customer_id, SalesBill.is_cancelled.is_(False)).order_by(SalesBill.bill_date.desc()).first()
+        last_purchase = last_bill.bill_date.strftime("%d/%m/%Y") if last_bill else "No previous purchase"
+
+        return jsonify({
+            "status": "match",
+            "customer": {
+                "id": best_match.customer_id,
+                "name": best_match.customer_name,
+                "title": best_match.title or "",
+                "phone": best_match.phone or "",
+                "last_purchase": last_purchase,
+                "confidence": round(1.0 - min_dist, 4)
+            },
+            "wanted": is_fraud,
+            "wanted_reason": wanted_reason
+        })
+
+    db.session.commit()
+    return jsonify({
+        "status": "no_match",
+        "message": "Unknown visitor"
+    })
+
+
+@masters_bp.route("/api/customers/<int:id>/face", methods=["PATCH"])
+def update_customer_face(id):
+    customer = Customer.query.get(id)
+    if not customer:
+        return json_error("Customer not found", 404)
+    
+    data = request.get_json(silent=True) or {}
+    face_vector = data.get("face_vector")
+    
+    if not face_vector or not isinstance(face_vector, list) or len(face_vector) != 128:
+        return json_error("Invalid face_vector. Expected 128-dim list of floats.")
+    
+    try:
+        customer.face_embedding = face_vector
+        customer.last_face_scan_at = datetime.utcnow()
+        db.session.commit()
+        return jsonify({"status": "success", "message": "Face registered successfully"})
+    except Exception as err:
+        db.session.rollback()
+        return json_error("Failed to update face embedding", 500, str(err))
+
+
 def _supplier_code(name: str) -> str:
     base = name.strip().upper().replace(" ", "_")[:20] or "SUP"
     exists = Supplier.query.filter_by(supplier_code=base).first()
@@ -83,58 +183,6 @@ def _family_scope(customer: Customer) -> tuple[int, list[int]]:
     return root_id, customer_ids
 
 
-def _balance_components(customer_ids: list[int]) -> dict:
-    scoped_ids = sorted({int(cid) for cid in customer_ids if cid is not None})
-    if not scoped_ids:
-        return {"sales": 0.0, "payments": 0.0, "net": 0.0, "balance": 0.0}
-
-    total_sales = float(
-        db.session.query(func.coalesce(func.sum(SalesBill.net_amount), 0))
-        .filter(
-            SalesBill.customer_id.in_(scoped_ids),
-            SalesBill.is_cancelled.is_(False),
-        )
-        .scalar()
-    )
-    total_payments = float(
-        db.session.query(func.coalesce(func.sum(ReceiptPayment.amount), 0))
-        .filter(ReceiptPayment.customer_id.in_(scoped_ids))
-        .scalar()
-    )
-    total_debit_notes = float(
-        db.session.query(func.coalesce(func.sum(BillingVoucher.amount), 0))
-        .filter(
-            BillingVoucher.customer_code.in_([str(cid) for cid in scoped_ids]),
-            BillingVoucher.voucher_type == "debit_note"
-        )
-        .scalar()
-    )
-
-    # Calculate "Base Balance" (outstanding_balance - (sales + debit_notes - payments))
-    # But that's complex. Let's just trust that Initial Balance is in the outstanding_balance
-    # and transactions are on top.
-    
-    # Actually, the simplest way is to sum outstanding_balance but correctly handle family payments.
-    # But if family payments only update one person, the sum is still correct for the family!
-    # Wait, in the test: Head (0 balance) pays 30. outstanding_balance stays 0. Member has 100. Sum = 100.
-    # The 30 was lost because it was not applied to the member.
-    
-    # If I use (Sales + DebitNotes - Payments), it would be (100 + 0 - 30) = 70.
-    # This matches the expected 70!
-    
-    # So the only thing missing is the Initial Balance (100) from the other test.
-    # If I create a Debit Note for the Initial Balance in add_customer, then (100 + 0 - 0) = 100.
-    # This also matches!
-    
-    net = total_sales + total_debit_notes - total_payments
-    return {
-        "sales": total_sales + total_debit_notes,
-        "payments": total_payments,
-        "net": net,
-        "balance": max(0.0, net),
-    }
-
-
 def _family_summary(customer: Customer) -> dict:
     root_id, customer_ids = _family_scope(customer)
     member_rows = Customer.query.filter(Customer.customer_id.in_(customer_ids)).all()
@@ -145,7 +193,24 @@ def _family_summary(customer: Customer) -> dict:
         SalesBill.customer_id.in_(customer_ids),
         SalesBill.is_cancelled.is_(False),
     ).count()
-    family_totals = _balance_components(customer_ids)
+    total_spend = float(
+        db.session.query(func.coalesce(func.sum(SalesBill.net_amount), 0))
+        .filter(
+            SalesBill.customer_id.in_(customer_ids),
+            SalesBill.is_cancelled.is_(False),
+        )
+        .scalar()
+    )
+    total_payments = float(
+        db.session.query(func.coalesce(func.sum(ReceiptPayment.amount), 0))
+        .filter(ReceiptPayment.customer_id.in_(customer_ids))
+        .scalar()
+    )
+
+    if len(customer_ids) == 1:
+        balance = float(customer.outstanding_balance or 0)
+    else:
+        balance = max(0.0, total_spend - total_payments)
 
     return {
         "family_head_id": root_id,
@@ -154,8 +219,8 @@ def _family_summary(customer: Customer) -> dict:
         "family_member_count": len(customer_ids),
         "family_member_names": [member_lookup[cid].customer_name for cid in customer_ids if cid in member_lookup],
         "visits": visits,
-        "total_spend": family_totals["sales"],
-        "balance": family_totals["balance"],
+        "total_spend": total_spend,
+        "balance": balance,
     }
 
 
@@ -227,6 +292,7 @@ def get_customers():
             {
                 "id": row.customer_id,
                 "name": row.customer_name,
+                "title": row.title or "",
                 "phone": row.phone or "",
                 # Show per-customer visit count (do not use family aggregate here)
                 "visits": visit_map.get(row.customer_id, 0),
@@ -255,12 +321,13 @@ def add_customer():
     try:
         customer = None
         customer_id = data.get("id")
+        is_new = False
         if customer_id:
             customer = Customer.query.get(customer_id)
-        is_new = False
         if not customer:
             customer = Customer(customer_name=data["name"], phone=data["phone"])
             db.session.add(customer)
+            db.session.flush()
             is_new = True
 
         family_head_id = data.get("family_head_id")
@@ -276,11 +343,14 @@ def add_customer():
 
         customer.family_relation = str(data.get("family_relation", "")).strip()
         customer.customer_name = data["name"]
+        customer.title = data.get("title", "")
         customer.phone = data["phone"]
         customer.address = data.get("address", "")
         customer.is_active = True
+        
         if "is_chronic" in data:
             customer.is_chronic_patient = bool(data["is_chronic"])
+            
         if is_new and "balance" in data and float(data.get("balance", 0) or 0) > 0:
             initial_bal = float(data.get("balance", 0))
             customer.outstanding_balance = initial_bal
@@ -297,14 +367,28 @@ def add_customer():
                 user_id=user_id
             )
             db.session.add(opening_voucher)
-        
+        elif not is_new and "balance" in data:
+            customer.outstanding_balance = float(data.get("balance", 0) or 0)
+            
         if "face_vector" in data and data["face_vector"]:
             try:
-                vector_list = json.loads(data["face_vector"])
-                if isinstance(vector_list, list) and len(vector_list) == 128:
-                    customer.face_embedding = vector_list
-            except (json.JSONDecodeError, ValueError):
+                # the frontend might send it as a string or a list
+                vector_data = data["face_vector"]
+                if isinstance(vector_data, str):
+                    customer.face_embedding = json.loads(vector_data)
+                else:
+                    customer.face_embedding = vector_data
+                print(f"DEBUG: Saved face embedding for customer {customer.customer_name}. Type: {type(customer.face_embedding)}")
+                with open("face_debug.txt", "a") as f:
+                    f.write(f"SAVED FACE: {customer.customer_name}, Vector Len: {len(customer.face_embedding)}\n")
+            except Exception as e:
+                print(f"DEBUG ERROR: Failed to parse face_vector: {e}")
+                with open("face_debug.txt", "a") as f:
+                    f.write(f"ERROR: {str(e)}\n")
                 pass
+        else:
+             with open("face_debug.txt", "a") as f:
+                f.write(f"NO FACE DATA in request for {customer.customer_name}. Keys: {list(data.keys())}\n")
 
         db.session.commit()
         return jsonify({"status": "success"})
@@ -450,11 +534,33 @@ def delete_supplier(id):
 
 @masters_bp.route("/api/customers/<id>", methods=["DELETE"])
 def delete_customer(id):
-    customer = Customer.query.get(id)
-    if customer:
-        db.session.delete(customer)
-        db.session.commit()
-    return jsonify({"status": "success"})
+    try:
+        customer = Customer.query.get(id)
+        if customer:
+            # Import models locally to avoid circular imports if any
+            from ..models.ai import AiFaceLog, WantedList, CustomerPurchasePattern
+            from ..models.sales import SalesBill, SalesReturn, ReceiptPayment, PrescriptionRegister
+            
+            # 1. Handle self-referencing family accounts
+            Customer.query.filter_by(family_head_id=id).update({"family_head_id": None})
+            
+            # 2. Set customer_id to NULL in history/logs
+            AiFaceLog.query.filter_by(customer_id=id).update({"customer_id": None})
+            SalesBill.query.filter_by(customer_id=id).update({"customer_id": None})
+            SalesReturn.query.filter_by(customer_id=id).update({"customer_id": None})
+            ReceiptPayment.query.filter_by(customer_id=id).update({"customer_id": None})
+            PrescriptionRegister.query.filter_by(customer_id=id).update({"customer_id": None})
+            
+            # 3. Delete ephemeral data
+            CustomerPurchasePattern.query.filter_by(customer_id=id).delete()
+            WantedList.query.filter_by(customer_id=id).delete()
+            
+            db.session.delete(customer)
+            db.session.commit()
+        return jsonify({"status": "success"})
+    except Exception as err:
+        db.session.rollback()
+        return json_error("Failed to delete customer. They may have critical billing history.", 500, str(err))
 
 
 @masters_bp.route("/api/customers/<id>/ledger", methods=["GET"])
@@ -463,9 +569,7 @@ def get_customer_ledger(id):
     if not customer:
         return json_error("Customer not found", 404)
 
-    root_id, family_ids = _family_scope(customer)
-    own_totals = _balance_components([customer.customer_id])
-    family_totals = _balance_components(family_ids)
+    _, family_ids = _family_scope(customer)
 
     bills = SalesBill.query.filter(
         SalesBill.customer_id.in_(family_ids),
@@ -520,19 +624,7 @@ def get_customer_ledger(id):
             }
         )
 
-    return jsonify(
-        {
-            "entries": out,
-            "summary": {
-                "customer_id": int(customer.customer_id),
-                "family_head_id": int(root_id),
-                "family_member_count": len(family_ids),
-                "own_credit": round(own_totals["balance"], 2),
-                "family_credit": round(family_totals["balance"], 2),
-                "is_family_account": len(family_ids) > 1,
-            },
-        }
-    )
+    return jsonify(out)
 
 
 @masters_bp.route("/api/customers/<id>/payment", methods=["POST"])
@@ -548,21 +640,9 @@ def record_customer_payment(id):
             return json_error("Customer not found", 404)
 
         user_id, payment_mode_id = _ensure_payment_context()
-        root_id, family_ids = _family_scope(customer)
-        balance_totals = _balance_components(family_ids)
-        current_balance = balance_totals["balance"]
 
-        if amount > current_balance + 0.0001:
-            return json_error(
-                "Payment exceeds family outstanding credit",
-                400,
-                {
-                    "family_credit": round(current_balance, 2),
-                    "requested_payment": round(amount, 2),
-                },
-            )
-
-        new_balance = max(0.0, float(customer.outstanding_balance or 0) - amount)
+        current_balance = float(customer.outstanding_balance or 0)
+        new_balance = current_balance - amount
         customer.outstanding_balance = new_balance
 
         receipt = ReceiptPayment(
@@ -577,16 +657,7 @@ def record_customer_payment(id):
         db.session.add(receipt)
         db.session.commit()
 
-        _, family_ids = _family_scope(customer)
-        family_totals = _balance_components(family_ids)
-        return jsonify(
-            {
-                "status": "success",
-                "new_balance": round(new_balance, 2),
-                "own_credit": round(new_balance, 2),
-                "family_credit": round(family_totals["balance"], 2),
-            }
-        )
+        return jsonify({"status": "success", "new_balance": new_balance})
     except Exception as err:
         db.session.rollback()
         return json_error("Failed to record payment", 500, str(err))

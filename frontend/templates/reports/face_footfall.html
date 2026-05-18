@@ -31,6 +31,11 @@
 <div class="report-filters">
     <label>From:</label><input type="date" id="f-start"/>
     <label>To:</label><input type="date" id="f-end"/>
+    <label>Camera:</label>
+    <select id="f-camera" style="padding:6px; border-radius:4px; border:1px solid #cbd5e1; font-size:12px; background:#fff;">
+        <option value="">All Cameras</option>
+        <option value="F4-counter">F4 Counter (Vision Counter)</option>
+    </select>
     <button class="btn-filter" onclick="loadReport()"><i class="fas fa-filter"></i> Load</button>
 </div>
 
@@ -99,10 +104,12 @@
 async function loadReport() {
     const start = document.getElementById('f-start').value;
     const end = document.getElementById('f-end').value;
+    const camera = document.getElementById('f-camera').value;
     let url = '/api/reports/face-footfall';
     const params = [];
     if (start) params.push('start_date=' + start);
     if (end) params.push('end_date=' + end);
+    if (camera) params.push('camera=' + camera);
     if (params.length) url += '?' + params.join('&');
 
     document.getElementById('report-loading').style.display = '';

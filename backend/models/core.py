@@ -1,6 +1,6 @@
 from datetime import datetime
 import uuid
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID
 # from pgvector.sqlalchemy import Vector
 from ..extensions import db
 
@@ -28,6 +28,9 @@ class User(db.Model):
     user_id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     username = db.Column(db.String(50), nullable=False, unique=True)
     name = db.Column(db.String(100))
+    title = db.Column(db.String(10), nullable=True)  # Sir/Mam
+    face_embedding = db.Column(db.JSON, nullable=True)
+    last_face_scan_at = db.Column(db.DateTime, nullable=True)
     phone = db.Column(db.String(20))
     password_hash = db.Column(db.Text, nullable=False)
     role_id = db.Column(db.Integer, db.ForeignKey('roles.role_id'), nullable=False)
@@ -206,7 +209,7 @@ class Supplier(db.Model):
     credit_days = db.Column(db.Integer, nullable=False, default=0)
     
     b2b_portal_url = db.Column(db.Text)
-    b2b_credentials = db.Column(JSONB)
+    b2b_credentials = db.Column(db.JSON)
 
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
@@ -251,6 +254,7 @@ class Customer(db.Model):
 
     customer_id = db.Column(db.Integer, primary_key=True)
     customer_name = db.Column(db.String(150), nullable=False)
+    title = db.Column(db.String(10), nullable=True)  # Sir/Mam
     phone = db.Column(db.String(20))
     family_head_id = db.Column(db.Integer, db.ForeignKey('customers.customer_id'))
     family_relation = db.Column(db.String(50))
@@ -258,9 +262,10 @@ class Customer(db.Model):
     address = db.Column(db.Text)
     gstin = db.Column(db.String(15))
 
-    face_image_url = db.Column(db.Text)
-    face_embedding = db.Column(JSONB)
-    last_face_scan_at = db.Column(db.DateTime)
+    face_image_url = db.Column(db.Text, nullable=True)
+    face_embedding = db.Column(db.JSON, nullable=True)
+    last_face_scan_at = db.Column(db.DateTime, nullable=True)
+
     is_chronic_patient = db.Column(db.Boolean, nullable=False, default=False)
     risk_score = db.Column(db.Integer, nullable=False, default=0)
 

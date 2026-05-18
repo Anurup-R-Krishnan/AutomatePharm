@@ -1,7 +1,10 @@
+# pyrefly: ignore [missing-import]
 from flask import Blueprint, request, jsonify, session, render_template, redirect, url_for
 from functools import wraps
+# pyrefly: ignore [missing-import]
 from werkzeug.security import check_password_hash, generate_password_hash
 from sqlalchemy import func
+import json
 
 from ..extensions import db
 from ..models.core import User, Role
@@ -56,7 +59,7 @@ def api_login():
         session["user_id"] = str(user.user_id)
         session["username"] = user.username
         session["name"] = user.name or user.username
-        session["role"] = user.role.role_name if user.role else "user"
+        session["role"] = user.role.role_name if user.role else "staff"
         return jsonify({
             "status": "success", 
             "message": "Login successful",
@@ -83,10 +86,12 @@ def get_users():
             "id": str(u.user_id),
             "username": u.username,
             "name": u.name or u.username,
+            "title": u.title or "",
             "phone": u.phone or "",
             "code": u.machine_code or "",
-            "role": u.role.role_name if u.role else "user",
-            "is_active": u.is_active
+            "role": u.role.role_name if u.role else "staff",
+            "is_active": u.is_active,
+            "face_vector": json.dumps(u.face_embedding) if u.face_embedding else None
         })
     return jsonify(result)
 
@@ -96,6 +101,8 @@ def add_user():
     data = request.get_json() or {}
     username = data.get("username")
     role_name = data.get("role")
+    if role_name == "user":
+        role_name = "staff"
     password = data.get("password")
     name = data.get("name")
     phone = data.get("phone")
@@ -117,8 +124,16 @@ def add_user():
             user.username = username
             user.role_id = role.role_id
             if name: user.name = name
+            if "title" in data: user.title = data.get("title", "")
             if phone: user.phone = phone
             if code: user.machine_code = code
+            if "face_vector" in data and data["face_vector"]:
+                try:
+                    vd = data["face_vector"]
+                    user.face_embedding = json.loads(vd) if isinstance(vd, str) else vd
+                except Exception as e:
+                    print(f"DEBUG ERROR Users (Update): {e}")
+                    pass
             
             if password:
                 user.password_hash = generate_password_hash(password)
@@ -130,12 +145,20 @@ def add_user():
             user = User(
                 username=username,
                 name=name,
+                title=data.get("title", ""),
                 phone=phone,
                 machine_code=code,
                 password_hash=generate_password_hash(password),
                 role_id=role.role_id,
                 is_active=data.get("is_active", True)
             )
+            if "face_vector" in data and data["face_vector"]:
+                try:
+                    vd = data["face_vector"]
+                    user.face_embedding = json.loads(vd) if isinstance(vd, str) else vd
+                except Exception as e:
+                    print(f"DEBUG ERROR Users (Create): {e}")
+                    pass
             db.session.add(user)
         db.session.commit()
         return jsonify({"status": "success"})
