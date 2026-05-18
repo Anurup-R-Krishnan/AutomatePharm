@@ -8,7 +8,8 @@ from ..models.core import (
     Item, Location, Manufacturer, ProductCategory, UnitOfMeasure,
     GstSlab, HsnCode, Combination
 )
-from ..models.inventory import StockBatch, ExpiryAlert
+from ..models.inventory import StockBatch, ExpiryAlert, StockAdjustment, StockLedger
+from ..models.lookups import TxnType
 
 inventory_bp = Blueprint("inventory", __name__)
 
@@ -83,6 +84,14 @@ def _item_to_compat(item: Item) -> dict:
         "shelf_id":   str(shelf_loc.location_id) if shelf_loc else "",
         "shelf_name": shelf_loc.location_name if shelf_loc else (item.rack_number or ""),
         "shelf_label": shelf_loc.location_name if shelf_loc else (item.rack_number or "Unassigned"),
+        "batches": [
+            {
+                "id": b.stock_batch_id,
+                "no": b.batch_no,
+                "qty": float(b.current_qty)
+            }
+            for b in StockBatch.query.filter_by(item_id=item.item_id).all()
+        ]
     }
 
 
@@ -449,3 +458,88 @@ def delete_shelf(id):
     except Exception as err:
         db.session.rollback()
         return _json_error("Failed to delete shelf location", 500, str(err))
+
+
+@inventory_bp.route("/api/inventory/adjust", methods=["POST"])
+def adjust_stock():
+    data = request.get_json(silent=True) or {}
+    batch_id = data.get("batch_id")
+    qty_adj = int(data.get("qty", 0))
+    reason = data.get("reason", "DAMAGE").upper()
+    remarks = data.get("remarks", "")
+
+    if not batch_id or qty_adj == 0:
+        return _json_error("Batch ID and non-zero quantity required")
+
+    try:
+        batch = StockBatch.query.get(batch_id)
+        if not batch:
+            return _json_error("Stock batch not found")
+
+        if qty_adj < 0 and abs(qty_adj) > batch.current_qty:
+            return _json_error(f"Cannot adjust by {qty_adj}, only {batch.current_qty} available in batch")
+
+        # Get or create TxnType for adjustment
+        txn_type = TxnType.query.filter_by(txn_type_code="ADJ").first()
+        if not txn_type:
+            txn_type = TxnType(txn_type_code="ADJ", txn_type_name="Stock Adjustment")
+            db.session.add(txn_type)
+            db.session.flush()
+
+        # Update batch
+        batch.current_qty += qty_adj
+        
+        # Log adjustment
+        from .bills import _get_or_create_defaults as get_bill_defaults
+        _, _, user_id, _, _ = get_bill_defaults()
+
+        adj = StockAdjustment(
+            stock_batch_id=batch.stock_batch_id,
+            item_id=batch.item_id,
+            qty=qty_adj,
+            reason=reason,
+            remarks=remarks,
+            user_id=user_id
+        )
+        db.session.add(adj)
+        db.session.flush()
+
+        # Stock Ledger
+        ledger = StockLedger(
+            stock_batch_id=batch.stock_batch_id,
+            item_id=batch.item_id,
+            txn_type_id=txn_type.txn_type_id,
+            txn_date=date.today(),
+            qty_in=qty_adj if qty_adj > 0 else 0,
+            qty_out=abs(qty_adj) if qty_adj < 0 else 0,
+            balance_qty=batch.current_qty,
+            ref_type="ADJUSTMENT",
+            ref_id=adj.adjustment_id
+        )
+        db.session.add(ledger)
+        db.session.commit()
+        return jsonify({"status": "success", "new_qty": batch.current_qty})
+    except Exception as err:
+        db.session.rollback()
+        return _json_error("Failed to adjust stock", 500, str(err))
+
+
+@inventory_bp.route("/api/inventory/adjustments", methods=["GET"])
+def list_adjustments():
+    adj_list = (
+        db.session.query(StockAdjustment, Item, StockBatch)
+        .join(Item, StockAdjustment.item_id == Item.item_id)
+        .join(StockBatch, StockAdjustment.stock_batch_id == StockBatch.stock_batch_id)
+        .order_by(StockAdjustment.adj_date.desc(), StockAdjustment.adjustment_id.desc())
+        .all()
+    )
+    return jsonify([{
+        "id": a.adjustment_id,
+        "date": a.adj_date.isoformat(),
+        "item_id": a.item_id,
+        "item": i.item_name,
+        "batch": b.batch_no,
+        "qty": a.qty,
+        "reason": a.reason,
+        "remarks": a.remarks
+    } for a, i, b in adj_list])
