@@ -29,7 +29,7 @@
   <div class="ni" data-panel="utilities" onclick="sw('utilities',this)"><i class="fas fa-hard-drive"></i><span>Utilities</span></div>
 
   <div class="ni" data-panel="insights" onclick="sw('insights',this)"><i class="fas fa-chart-line"></i><span>Data Insights</span></div>
-  <div class="ni" data-panel="staff-performance" onclick="sw('staff-performance',this)"><i class="fas fa-users-viewfinder"></i><span>Staff Insights</span></div>
+  <div class="ni" data-panel="staff" onclick="sw('staff',this)"><i class="fas fa-users-viewfinder"></i><span>Staff Insights</span></div>
   <div class="sp"></div>
   <div class="nl">OTHER</div>
   <div class="ni" data-panel="users" onclick="sw('users',this)"><i class="fas fa-users-gear"></i><span>Users & Access</span></div>
@@ -632,7 +632,7 @@
   </div>
 </div></div>
 <!-- STAFF PERFORMANCE -->
-<div class="pn" id="p-staff-performance"><div class="pg">
+<div class="pn" id="p-staff"><div class="pg">
   <div class="sec-hd">
     <span class="sec-t">Salesman Performance Analytics</span>
     <button class="btn btn-out" onclick="rStaffInsights()"><i class="fas fa-rotate"></i> Refresh Data</button>
@@ -3296,7 +3296,7 @@ const oldSw = sw;
 sw = function(k, el) {
     oldSw(k, el);
     if(k === 'insights') rInsights();
-    if(k === 'staff-performance') rStaffInsights();
+    if(k === 'staff') rStaffInsights();
 };
 function dnWaste(){
     fetch(API+"/inventory/adjustments").then(res=>res.json()).then(data=>{
