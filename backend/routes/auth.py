@@ -59,7 +59,7 @@ def api_login():
         session["user_id"] = str(user.user_id)
         session["username"] = user.username
         session["name"] = user.name or user.username
-        session["role"] = user.role.role_name if user.role else "user"
+        session["role"] = user.role.role_name if user.role else "staff"
         return jsonify({
             "status": "success", 
             "message": "Login successful",
@@ -89,7 +89,7 @@ def get_users():
             "title": u.title or "",
             "phone": u.phone or "",
             "code": u.machine_code or "",
-            "role": u.role.role_name if u.role else "user",
+            "role": u.role.role_name if u.role else "staff",
             "is_active": u.is_active,
             "face_vector": json.dumps(u.face_embedding) if u.face_embedding else None
         })
@@ -101,6 +101,8 @@ def add_user():
     data = request.get_json() or {}
     username = data.get("username")
     role_name = data.get("role")
+    if role_name == "user":
+        role_name = "staff"
     password = data.get("password")
     name = data.get("name")
     phone = data.get("phone")

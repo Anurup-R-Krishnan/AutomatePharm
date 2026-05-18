@@ -501,7 +501,7 @@
       <input type="password" id="u-pass" placeholder="Login Password" style="min-width:150px;background:#252a40;border:1px solid var(--brd);border-radius:7px;padding:7px 10px;color:var(--tx)"/>
       <select id="u-role" style="background:#252a40;border:1px solid var(--brd);border-radius:7px;padding:7px 10px;color:var(--tx)">
         <option value="junior">Junior Staff</option>
-        <option value="user">Staff</option>
+        <option value="staff">Staff</option>
         <option value="manager">Manager</option>
         <option value="admin">Admin</option>
       </select>
@@ -1064,6 +1064,7 @@ const ROLE_ACCESS={
   admin:['*'],
   manager:['sales','purchase','item','masters','reorder','utilities','sms'],
   user:['sales','purchase','item','reorder'],
+  staff:['sales','purchase','item','reorder'],
   junior:['sales']
 };
 let APP_USERS=[];
@@ -1071,7 +1072,7 @@ const CURRENT_USER = {{ current_user | tojson | safe }};
 
 function roleCanAccess(panel){
   const role = CURRENT_USER.role;
-  const allow = ROLE_ACCESS[role] || ROLE_ACCESS['user'];
+  const allow = ROLE_ACCESS[role] || ROLE_ACCESS['staff'] || ROLE_ACCESS['user'];
   return allow.includes('*') || allow.includes(panel);
 }
 function sw(k,el){
@@ -1227,14 +1228,14 @@ async function removeAppUser(id){
 
 function renderUsersPanel(){
   const tb=document.getElementById('u-body');
-  const dRole=(r)=>r==='user'?'staff':(r==='junior'?'junior staff':r);
+  const dRole=(r)=>r==='user'||r==='staff'?'staff':(r==='junior'?'junior staff':r);
   if(tb){
     tb.innerHTML=APP_USERS.map(u=>`<tr><td>${u.name} (${u.username})</td><td>${u.phone||'—'}</td><td>${u.code||'—'}</td><td><span class="bx bo">${dRole(u.role)}</span></td><td style="text-align:right"><button class="btn btn-out" style="padding:4px 8px;margin-right:5px" onclick="editAppUser('${u.id}')">Edit</button><button class="btn btn-r" style="padding:4px 8px" onclick="removeAppUser('${u.id}')">Delete</button></td></tr>`).join('');
   }
   const rb=document.getElementById('role-body');
   if(rb){
     const yn=(k,p)=>((ROLE_ACCESS[k]||[]).includes('*')||(ROLE_ACCESS[k]||[]).includes(p))?'Yes':'No';
-    rb.innerHTML=['admin','manager','user','junior'].map(k=>`<tr><td>${dRole(k)}</td><td>${yn(k,'sales')}</td><td>${yn(k,'purchase')}</td><td>${yn(k,'item')}</td><td>${yn(k,'masters')}</td><td>${yn(k,'reorder')}</td><td>${yn(k,'utilities')}</td><td>${yn(k,'system')}</td><td>${yn(k,'users')}</td></tr>`).join('');
+    rb.innerHTML=['admin','manager','staff','junior'].map(k=>`<tr><td>${dRole(k)}</td><td>${yn(k,'sales')}</td><td>${yn(k,'purchase')}</td><td>${yn(k,'item')}</td><td>${yn(k,'masters')}</td><td>${yn(k,'reorder')}</td><td>${yn(k,'utilities')}</td><td>${yn(k,'system')}</td><td>${yn(k,'users')}</td></tr>`).join('');
   }
 }
 
