@@ -6,7 +6,7 @@ from sqlalchemy import func
 from ..extensions import db
 from ..models.core import Customer, Doctor, Role, Supplier, User
 from ..models.lookups import PaymentMode
-from ..models.sales import ReceiptPayment, SalesBill
+from ..models.sales import BillingVoucher, ReceiptPayment, SalesBill
 from ..analytics_logic import get_personalized_suggestions
 
 
@@ -274,14 +274,28 @@ def add_supplier():
 @masters_bp.route("/api/customers", methods=["GET"])
 def get_customers():
     rows = Customer.query.order_by(Customer.customer_name.asc()).all()
-    return jsonify(
-        [
-            (lambda summary: {
+    customer_ids = [r.customer_id for r in rows]
+    visit_map: dict[int, int] = {}
+    if customer_ids:
+        counts = (
+            db.session.query(SalesBill.customer_id, func.count())
+            .filter(SalesBill.customer_id.in_(customer_ids), SalesBill.is_cancelled.is_(False))
+            .group_by(SalesBill.customer_id)
+            .all()
+        )
+        visit_map = {int(cid): int(cnt) for cid, cnt in counts}
+
+    out = []
+    for row in rows:
+        summary = _family_summary(row)
+        out.append(
+            {
                 "id": row.customer_id,
                 "name": row.customer_name,
                 "title": row.title or "",
                 "phone": row.phone or "",
-                "visits": summary["visits"],
+                # Show per-customer visit count (do not use family aggregate here)
+                "visits": visit_map.get(row.customer_id, 0),
                 "total_spend": summary["total_spend"],
                 "address": row.address or "",
                 "email": "",
@@ -292,11 +306,10 @@ def get_customers():
                 "family_relation": summary["family_relation"],
                 "family_member_count": summary["family_member_count"],
                 "family_member_names": summary["family_member_names"],
-            })(_family_summary(row))
-
-            for row in rows
-        ]
-    )
+                "is_chronic": row.is_chronic_patient
+            }
+        )
+    return jsonify(out)
 
 
 @masters_bp.route("/api/customers", methods=["POST"])
@@ -331,8 +344,29 @@ def add_customer():
         customer.phone = data["phone"]
         customer.address = data.get("address", "")
         customer.is_active = True
-        if "balance" in data:
+        
+        if "is_chronic" in data:
+            customer.is_chronic_patient = bool(data["is_chronic"])
+            
+        if is_new and "balance" in data and float(data.get("balance", 0) or 0) > 0:
+            initial_bal = float(data.get("balance", 0))
+            customer.outstanding_balance = initial_bal
+            # Create a virtual debit note for the opening balance
+            user_id, _ = _ensure_payment_context()
+            voucher_no = f"OB-{int(datetime.utcnow().timestamp())}"
+            opening_voucher = BillingVoucher(
+                voucher_type="debit_note",
+                voucher_no=voucher_no,
+                voucher_date=datetime.utcnow().date(),
+                customer_code=str(customer.customer_id),
+                amount=initial_bal,
+                remarks="Opening Balance",
+                user_id=user_id
+            )
+            db.session.add(opening_voucher)
+        elif not is_new and "balance" in data:
             customer.outstanding_balance = float(data.get("balance", 0) or 0)
+            
         if "face_vector" in data and data["face_vector"]:
             try:
                 # the frontend might send it as a string or a list

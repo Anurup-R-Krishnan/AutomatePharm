@@ -216,7 +216,13 @@ def update_med():
             db.session.flush()
         cat_id = category.category_id
 
-        item_id = data.get("id") or ("m" + hex(int(datetime.utcnow().timestamp()))[2:])
+        import uuid
+        item_id = str(data.get("id") or "").strip()
+        if not item_id:
+            # Using UUID generation ensures no collisions, while keeping max length 10
+            item_id = "I-" + uuid.uuid4().hex[:8]
+        elif len(item_id) > 10:
+            item_id = item_id[:10]
         item = Item.query.get(item_id)
 
         if not item:

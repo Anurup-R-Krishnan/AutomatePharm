@@ -495,17 +495,9 @@
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
       <input type="hidden" id="u-id"/>
       <input type="text" id="u-name" placeholder="Name" style="min-width:150px;background:#252a40;border:1px solid var(--brd);border-radius:7px;padding:7px 10px;color:var(--tx)"/>
-      <select id="u-title" style="background:#252a40;border:1px solid var(--brd);border-radius:7px;padding:7px 10px;color:var(--tx)">
-        <option value="Sir">Sir</option>
-        <option value="Mam">Mam</option>
-        <option value="Mr.">Mr.</option>
-        <option value="Mrs.">Mrs.</option>
-      </select>
       <input type="text" id="u-user" placeholder="Username" style="min-width:150px;background:#252a40;border:1px solid var(--brd);border-radius:7px;padding:7px 10px;color:var(--tx)"/>
       <input type="text" id="u-phone" placeholder="Contact" style="min-width:150px;background:#252a40;border:1px solid var(--brd);border-radius:7px;padding:7px 10px;color:var(--tx)"/>
       <input type="text" id="u-code" placeholder="Code" style="min-width:100px;background:#252a40;border:1px solid var(--brd);border-radius:7px;padding:7px 10px;color:var(--tx)"/>
-      <input type="hidden" id="u-face"/>
-      <button class="btn btn-out" id="u-btn-scan" onclick="enrollUserFace(event)" title="Enroll Staff Face"><i class="fas fa-camera"></i></button>
       <input type="password" id="u-pass" placeholder="Login Password" style="min-width:150px;background:#252a40;border:1px solid var(--brd);border-radius:7px;padding:7px 10px;color:var(--tx)"/>
       <select id="u-role" style="background:#252a40;border:1px solid var(--brd);border-radius:7px;padding:7px 10px;color:var(--tx)">
         <option value="junior">Junior Staff</option>
@@ -750,6 +742,10 @@
     <label>Customer Name</label><input type="text" id="c-n"/><label>Phone</label><input type="text" id="c-p"/><label>Address</label><input type="text" id="c-a"/><label>Email</label><input type="text" id="c-e"/>
     <label>Family Head</label><select id="c-fh" style="width:100%;background:#252a40;border:1px solid var(--brd);border-radius:7px;padding:7px;color:var(--tx);font-family:inherit;margin-bottom:8px"></select>
     <label>Relation</label><input type="text" id="c-fr" placeholder="e.g. Spouse, Child"/>
+    <div style="display:flex; align-items:center; gap:8px; margin: 10px 0;">
+      <input type="checkbox" id="c-chronic" style="width:16px; height:16px; accent-color:var(--acc);">
+      <label for="c-chronic" style="margin-bottom:0; cursor:pointer; font-size:12px;">Chronic Patient (Refill Reminders)</label>
+    </div>
     <div style="text-align:center; margin-bottom: 8px;">
       <video id="c-vid" autoplay playsinline style="width:100%;height:150px;object-fit:cover;display:none;margin-bottom:8px;border-radius:8px;transform:scaleX(-1)"></video>
       <button class="btn btn-out" id="c-btn-scan" style="width:100%;padding:10px;justify-content:center;font-size:11.5px" onclick="enrollFace(event)"><i class="fas fa-camera"></i> Enroll Face Vector</button>
@@ -1813,7 +1809,7 @@ async function enrollFace(e) {
   }
 }
 
-function sv_cust(){const id=document.getElementById('c-id').value,n=document.getElementById('c-n').value.trim(),p=document.getElementById('c-p').value.trim(),a=document.getElementById('c-a').value.trim(),e=document.getElementById('c-e').value.trim(),fh=document.getElementById('c-fh').value,fr=document.getElementById('c-fr').value.trim(),f=document.getElementById('c-face').value;if(!n){alert('Enter Customer Name');return;}const d=id?CUSTOMERS.find(x=>x.id==id):{};fetch(API+'/customers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id||null,name:n,phone:p,address:a,email:e,visits:d.visits||1,total:d.total_spend||0,face_vector:f,family_head_id:fh||null,family_relation:fr})}).then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.message||'Save failed')});return r.json()}).then(()=>{rMasters();document.getElementById('cust-mod').style.display='none';}).catch(err=>alert(err.message));}
+function sv_cust(){const id=document.getElementById('c-id').value,n=document.getElementById('c-n').value.trim(),p=document.getElementById('c-p').value.trim(),a=document.getElementById('c-a').value.trim(),e=document.getElementById('c-e').value.trim(),fh=document.getElementById('c-fh').value,fr=document.getElementById('c-fr').value.trim(),f=document.getElementById('c-face').value,chr=document.getElementById('c-chronic').checked;if(!n){alert('Enter Customer Name');return;}const d=id?CUSTOMERS.find(x=>x.id==id):{};fetch(API+'/customers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id||null,name:n,phone:p,address:a,email:e,visits:d.visits||1,total:d.total_spend||0,face_vector:f,family_head_id:fh||null,family_relation:fr,is_chronic:chr})}).then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.message||'Save failed')});return r.json()}).then(()=>{rMasters();document.getElementById('cust-mod').style.display='none';}).catch(err=>alert(err.message));}
 function dcust(id){if(!confirm('Delete this customer?'))return;fetch(API+'/customers/'+id,{method:'DELETE'}).then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.error||'Delete failed')});rMasters();}).catch(err=>alert(err.message));}
 
 function asup(){document.getElementById('sup-mod').style.display='flex';document.getElementById('sup-title').textContent='Add Supplier';document.getElementById('s-id').value='';document.getElementById('s-n').value='';document.getElementById('s-p').value='';document.getElementById('s-g').value='';document.getElementById('s-st').value='Active';document.getElementById('s-n').focus();}
