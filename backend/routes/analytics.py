@@ -5,7 +5,11 @@ from ..analytics_logic import (
     get_top_moving_items, 
     get_market_basket_analysis, 
     get_churn_risk_customers,
-    get_refill_reminders
+    get_customer_lifetime_value,
+    get_dynamic_stockout_risk,
+    get_refill_reminders,
+    get_staff_performance_summary,
+    get_staff_detailed_performance
 )
 
 analytics_bp = Blueprint("analytics", __name__)
@@ -19,6 +23,8 @@ def analytics_summary():
         top_items = get_top_moving_items()
         basket = get_market_basket_analysis()
         churn = get_churn_risk_customers()
+        clv_rfm = get_customer_lifetime_value()
+        stockout_risk = get_dynamic_stockout_risk()
         refills = get_refill_reminders()
         
         return jsonify({
@@ -27,6 +33,8 @@ def analytics_summary():
             "top_moving_items": top_items,
             "market_basket": basket,
             "churn_risk": churn,
+            "clv_rfm": clv_rfm,
+            "stockout_risk": stockout_risk,
             "refill_reminders": refills
         })
     except Exception as e:
@@ -48,5 +56,25 @@ def refill_reminders():
         days = int(request.args.get("days", 5))
         data = get_refill_reminders(days_buffer=days)
         return jsonify(data)
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@analytics_bp.route("/api/analytics/staff-summary", methods=["GET"])
+@role_required("admin", "manager")
+def staff_summary():
+    try:
+        data = get_staff_performance_summary()
+        return jsonify({"status": "success", "data": data})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@analytics_bp.route("/api/analytics/staff/<int:staff_id>", methods=["GET"])
+@role_required("admin", "manager")
+def staff_details(staff_id):
+    try:
+        data = get_staff_detailed_performance(staff_id)
+        if not data:
+            return jsonify({"status": "error", "message": "Staff not found"}), 404
+        return jsonify({"status": "success", "data": data})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
