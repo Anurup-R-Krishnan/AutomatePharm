@@ -6,7 +6,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from sqlalchemy import func
 import json
 
-from ..extensions import db
+from ..extensions import db, limiter
 from ..models.core import User, Role
 
 auth_bp = Blueprint("auth", __name__)
@@ -40,6 +40,7 @@ def login_page():
     return render_template("login.html")
 
 @auth_bp.route("/api/login", methods=["POST"])
+@limiter.limit("5 per minute")
 def api_login():
     data = request.get_json() or {}
     username = data.get("username", "").strip()
@@ -118,6 +119,19 @@ def add_user():
     user_id = data.get("id")
     try:
         if user_id:
+            # Prevent deactivating self
+            if str(user_id) == session.get("user_id"):
+                if "is_active" in data and not bool(data["is_active"]):
+                    return jsonify({"status": "error", "message": "You cannot deactivate your own account"}), 400
+
+            # Prevent updating username to someone else's username
+            existing = db.session.query(User).filter(
+                func.lower(User.username) == username.strip().lower(),
+                User.user_id != user_id
+            ).first()
+            if existing:
+                return jsonify({"status": "error", "message": "Username already exists"}), 400
+
             user = db.session.query(User).filter_by(user_id=user_id).first()
             if not user:
                 return jsonify({"status": "error", "message": "User not found"}), 404
@@ -140,6 +154,13 @@ def add_user():
             if "is_active" in data:
                 user.is_active = bool(data["is_active"])
         else:
+            # Prevent creating duplicate username
+            existing = db.session.query(User).filter(
+                func.lower(User.username) == username.strip().lower()
+            ).first()
+            if existing:
+                return jsonify({"status": "error", "message": "Username already exists"}), 400
+
             if not password:
                 return jsonify({"status": "error", "message": "Password required for new user"}), 400
             user = User(
@@ -169,8 +190,13 @@ def add_user():
 @auth_bp.route("/api/users/<id>", methods=["DELETE"])
 @role_required("admin")
 def delete_user(id):
+    # Prevent deleting self
+    if str(id) == session.get("user_id"):
+        return jsonify({"status": "error", "message": "You cannot delete your own account"}), 400
+
     user = db.session.query(User).filter_by(user_id=id).first()
     if user:
         db.session.delete(user)
         db.session.commit()
-    return jsonify({"status": "success"})
+        return jsonify({"status": "success"})
+    return jsonify({"status": "error", "message": "User not found"}), 404
