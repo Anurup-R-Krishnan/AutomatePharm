@@ -29,7 +29,6 @@
   <div class="ni" data-panel="reorder" onclick="sw('reorder',this)"><i class="fas fa-robot"></i><span>Re-Order AI</span></div>
   <div class="ni" data-panel="system" onclick="sw('system',this)"><i class="fas fa-display"></i><span>System</span></div>
   <div class="ni" data-panel="utilities" onclick="sw('utilities',this)"><i class="fas fa-hard-drive"></i><span>Utilities</span></div>
-  <div class="ni" data-panel="sms" onclick="sw('sms',this)"><i class="fas fa-comment-dots"></i><span>SMS</span></div>
   <div class="ni" data-panel="insights" onclick="sw('insights',this)"><i class="fas fa-chart-line"></i><span>Data Insights</span></div>
   <div class="ni" data-panel="staff-performance" onclick="sw('staff-performance',this)"><i class="fas fa-users-viewfinder"></i><span>Staff Insights</span></div>
   <div class="sp"></div>
@@ -112,6 +111,21 @@
         <div class="dr"><label>Discount</label><input type="number" id="dv" value="0" min="0" oninput="rc()"/><select id="dt" onchange="rc()"><option value="pct">%</option><option value="flat">₹</option></select></div>
         <div class="sr"><span>GST 5%</span><span id="tv">₹0</span></div>
         <div class="sr tot"><span>TOTAL</span><span id="ttv">₹0</span></div>
+        <div class="sr" style="margin-top:12px; padding:10px; background:rgba(34,197,94,0.05); border:1px solid rgba(34,197,94,0.2); border-radius:8px">
+          <div style="display:flex; flex-direction:column; gap:4px; width:100%">
+            <div style="display:flex; justify-content:space-between; align-items:center">
+                <span style="font-size:11px; font-weight:700; color:var(--mt); text-transform:uppercase; letter-spacing:0.5px">Paid Amount</span>
+                <span id="rem-bal-live" style="font-size:11px; color:#ef4444; font-weight:700"></span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px">
+              <span style="font-size:18px; color:#22c55e; font-weight:800">₹</span>
+              <input type="number" id="paid-amt" value="0" step="0.01" 
+                     style="flex:1; background:transparent; border:none; border-bottom:2px solid #22c55e; color:#22c55e; padding:4px 0; font-size:22px; font-weight:800; outline:none" 
+                     oninput="this.dataset.manual='true'; updateLiveBalance()"/>
+            </div>
+            <div style="font-size:10px; color:var(--dim); font-style:italic">Edit if customer is paying only part.</div>
+          </div>
+        </div>
         <div class="pr2">
           <button class="pb sel" id="pm-cash" onclick="sp('cash')">Cash</button>
           <button class="pb" id="pm-upi" onclick="sp('upi')">UPI</button>
@@ -121,7 +135,6 @@
         <div class="ar">
           <button class="btn btn-r" style="flex:0 0 auto" onclick="cc()"><i class="fas fa-trash"></i></button>
           <button class="btn btn-out" style="flex:1" onclick="hb()"><i class="fas fa-pause"></i>Hold</button>
-          <button class="btn btn-out" style="flex:1" onclick="openSmsDraftFromBill()"><i class="fas fa-comment-dots"></i>SMS</button>
           <button class="btn btn-acc" style="flex:1" onclick="pb2()"><i class="fas fa-print"></i>Bill</button>
         </div>
       </div>
@@ -243,52 +256,7 @@
       <div id="sys-low"></div>
     </div>
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1.15fr;gap:14px;align-items:start;margin-top:14px">
-    <div class="crd fm" style="padding:16px">
-      <div style="font-size:13px;font-weight:600;margin-bottom:12px">Compose Message</div>
-      <label>Recipient Customer</label>
-      <select id="sms-customer" onchange="smsPickCustomer(this.value)" style="width:100%;background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px 10px;color:var(--tx);font-size:12px;outline:none;font-family:'Inter',sans-serif">
-        <option value="">Select customer</option>
-      </select>
-      <label>Recipient Phone</label>
-      <input type="text" id="sms-phone" placeholder="Enter phone number"/>
-      <div class="g2" style="margin-top:2px">
-        <div>
-          <label>Bill Ref</label>
 
-          <input type="text" id="sms-bill" placeholder="Bill ID / reference"/>
-        </div>
-        <div>
-          <label>Template</label>
-          <select id="sms-template" onchange="smsApplyTemplate(this.value)">
-            <option value="">Custom Message</option>
-          </select>
-        </div>
-      </div>
-      <label>Message</label>
-      <textarea id="sms-compose-body" rows="7" placeholder="Type your message..."></textarea>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px">
-        <button class="btn btn-out" style="flex:1;min-width:120px" onclick="smsQuickTemplate('bill_ready')"><i class="fas fa-file-invoice"></i>Bill Ready</button>
-        <button class="btn btn-out" style="flex:1;min-width:120px" onclick="smsQuickTemplate('reminder')"><i class="fas fa-bell"></i>Pickup Reminder</button>
-        <button class="btn btn-out" style="flex:1;min-width:120px" onclick="smsQuickTemplate('custom')"><i class="fas fa-pen"></i>Custom</button>
-      </div>
-      <button class="btn btn-acc" style="width:100%;justify-content:center;padding:11px" onclick="sendSmsMessage()"><i class="fas fa-paper-plane"></i>Send SMS</button>
-    </div>
-    <div class="crd" style="padding:16px">
-      <div class="sec-hd" style="margin-bottom:10px">
-        <span class="sec-t" style="font-size:13px">Message History</span>
-        <span id="sms-sync-state" style="font-size:11px;color:var(--mt)">Ready</span>
-      </div>
-      <div class="tw" style="max-height:640px;overflow:auto">
-        <table>
-          <thead><tr><th>Recipient</th><th>Template</th><th>Message</th><th>Status</th><th>Time</th><th>Action</th></tr></thead>
-          <tbody id="sms-history-body">
-            <tr><td colspan="6" style="text-align:center;color:var(--dim)">No SMS messages yet.</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
 </div></div>
 <!-- UTILITIES -->
 <div class="pn" id="p-utilities"><div class="pg">
@@ -395,6 +363,11 @@
       <i class="fas fa-file-medical" style="font-size:22px;color:#14b8a6;margin-bottom:10px;display:block"></i>
       <div style="font-size:13px;font-weight:600;margin-bottom:4px">OCR Analytics</div>
       <div style="font-size:11px;color:var(--mt)">Automation rate</div>
+    </div>
+    <div class="crd" onclick="rWasteRep()" style="padding:18px;cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor='#374151'" onmouseout="this.style.borderColor=''">
+      <i class="fas fa-dumpster" style="font-size:22px;color:#f87171;margin-bottom:10px;display:block"></i>
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px">Damage & Waste</div>
+      <div style="font-size:11px;color:var(--mt)">Log broken/lost items</div>
     </div>
   </div>
 
@@ -521,41 +494,6 @@
       <thead><tr><th>Role</th><th>Sales</th><th>Purchase</th><th>Items</th><th>Masters</th><th>Reorder AI</th><th>Utilities</th><th>System</th><th>Users</th></tr></thead>
       <tbody id="role-body"></tbody>
     </table></div>
-  </div>
-</div></div>
-<!-- SMS -->
-<div class="pn" id="p-sms"><div class="pg">
-  <div class="sec-hd">
-    <span class="sec-t">SMS Center</span>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-out" onclick="refreshSmsCenter()"><i class="fas fa-rotate"></i>Refresh</button>
-      <button class="btn btn-acc" onclick="openSmsDraftFromBill()"><i class="fas fa-receipt"></i>Use Current Bill</button>
-    </div>
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-    <div>
-      <div class="crd fm" style="padding:16px;margin-bottom:14px">
-        <div style="font-size:13px;font-weight:600;margin-bottom:12px">Compose Message</div>
-        <label>To (Phone / Group)</label>
-        <input type="text" placeholder="Enter phone or select group"/>
-        <label>Template</label>
-        <select><option>Bill Ready</option><option>Expiry Reminder</option><option>Low Stock Alert</option><option>Custom</option></select>
-        <label>Message</label>
-        <textarea placeholder="Type your message...">Dear customer, your bill from Selvam Medicals is ready. Total: ₹XXX. Thank you!</textarea>
-        <button class="btn btn-acc" style="width:100%"><i class="fas fa-paper-plane"></i>Send Now</button>
-      </div>
-    </div>
-    <div>
-      <div style="font-size:13px;font-weight:600;margin-bottom:10px">Recent Messages</div>
-      <div class="tw"><table>
-        <thead><tr><th>To</th><th>Message</th><th>Status</th><th>Time</th></tr></thead>
-        <tbody>
-          <tr><td>98765 43210</td><td>Bill ready ₹380</td><td><span class="bx bg">Sent</span></td><td>14:32</td></tr>
-          <tr><td>87654 32109</td><td>Expiry reminder</td><td><span class="bx bg">Sent</span></td><td>14:00</td></tr>
-          <tr><td>76543 21098</td><td>Low stock alert</td><td><span class="bx br">Failed</span></td><td>13:45</td></tr>
-        </tbody>
-      </table></div>
-    </div>
   </div>
 </div></div>
 <!-- INSIGHTS -->
@@ -1557,7 +1495,7 @@ function rItems(list, append=false){
   let html = '';
   list.forEach(m=>{
     const st=m.s<=0?'<span class="bx br">Out</span>':(m.s<15?'<span class="bx br" style="background:#f59e0b">Low</span>':'<span class="bx bg">OK</span>');
-    html+=`<tr><td style="position:sticky;left:0;background:var(--card);border-right:1px solid var(--brd);font-weight:600">${m.n}</td><td>${shelfLabel(m)}</td><td>${m.batch||'—'}</td><td>${m.expiry||'—'}</td><td>₹${m.p_rate}</td><td>${m.p_packing||'—'}</td><td>₹${m.p}</td><td>${m.s_packing||'—'}</td><td>${m.s}</td><td>${m.p_gst}%</td><td>${m.s_gst}%</td><td>${m.disc}%</td><td>${m.offer||'None'}</td><td>${m.reorder}</td><td>${m.max_qty}</td><td style="text-align:right"><button class="btn btn-out" style="padding:4px 8px" onclick="editMed('${m.id}')"><i class="fas fa-pen"></i></button></td></tr>`;
+    html+=`<tr><td style="position:sticky;left:0;background:var(--card);border-right:1px solid var(--brd);font-weight:600">${m.n}</td><td>${shelfLabel(m)}</td><td>${m.batch||'—'}</td><td>${m.expiry||'—'}</td><td>₹${m.p_rate}</td><td>${m.p_packing||'—'}</td><td>₹${m.p}</td><td>${m.s_packing||'—'}</td><td>${m.s}</td><td>${m.p_gst}%</td><td>${m.s_gst}%</td><td>${m.disc}%</td><td>${m.offer||'None'}</td><td>${m.reorder}</td><td>${m.max_qty}</td><td style="text-align:right"><button class="btn btn-out" style="padding:4px 8px" onclick="editMed('${m.id}')"><i class="fas fa-pen"></i></button><button class="btn btn-out" style="padding:4px 8px;border-color:#ef4444;color:#ef4444;margin-left:6px" onclick="openWaste('${m.id}')"><i class="fas fa-trash"></i></button></td></tr>`;
   });
   
   if (append) {
@@ -1823,7 +1761,8 @@ function fi(q){
 // fm2() handles both now
 
 function at(id){const i=MEDS.find(x=>x.id==id);if(!i)return;if(i.s<=0){alert('Out of stock!');return;}if(cart[id]&&(cart[id].qty>=i.s)){alert('Cannot exceed available stock!');return;}if(cart[id])cart[id].qty++;else cart[id]={...i,qty:1};rct();}
-function rct(){const ca=document.getElementById('ca'),ec=document.getElementById('ec'),bs2=document.getElementById('bs2'),ks=Object.keys(cart);ca.querySelectorAll('.ci2').forEach(x=>x.remove());if(!ks.length){ec.style.display='flex';bs2.style.display='none';return;}ec.style.display='none';ks.forEach(k=>{const i=cart[k];const d=document.createElement('div');d.className='ci2';d.innerHTML='<div class="cn2"><div class="nm">'+i.n+'</div><div class="pr">₹'+i.p+' × '+i.qty+'</div></div><div class="qc"><button class="qb" onclick="cq(\''+k+'\',-1)"><i class="fas fa-minus"></i></button><input type="number" class="qv-in" value="'+i.qty+'" onchange="sq(\''+k+'\',this.value)"/><button class="qb" onclick="cq(\''+k+'\',1)"><i class="fas fa-plus"></i></button></div><span class="ct2">₹'+(i.p*i.qty).toFixed(2)+'</span><span class="cd" onclick="ri(\''+k+'\')"><i class="fas fa-xmark"></i></span>';ca.appendChild(d);});bs2.style.display='block';rc();}
+function rct(){const ca=document.getElementById('ca'),ec=document.getElementById('ec'),bs2=document.getElementById('bs2'),ks=Object.keys(cart);ca.querySelectorAll('.ci2').forEach(x=>x.remove());if(!ks.length){ec.style.display='flex';bs2.style.display='none';return;}ec.style.display='none';ks.forEach(k=>{const i=cart[k];const d=document.createElement('div');d.className='ci2';d.innerHTML='<div class="cn2"><div class="nm">'+i.n+'</div><div class="pr">₹'+i.p+' × '+i.qty+'</div></div><div class="qc"><button class="qb" onclick="cq(\''+k+'\',-1)"><i class="fas fa-minus"></i></button><input type="number" class="qv-in" value="'+i.qty+'" onchange="sq(\''+k+'\',this.value)"/><button class="qb" onclick="cq(\''+k+'\',1)"><i class="fas fa-plus"></i></button></div><div style="display:flex;flex-direction:column;align-items:center;margin:0 12px;padding:4px 6px;background:rgba(34,197,94,0.1);border-radius:6px;border:1px solid rgba(34,197,94,0.2)"><span style="font-size:8px;color:#22c55e;font-weight:700;margin-bottom:2px">CHRONIC</span><input type="checkbox" '+(i.is_chronic?'checked':'')+' onchange="tc(\''+k+'\')" style="width:18px;height:18px;accent-color:#22c55e;cursor:pointer"/></div><span class="ct2">₹'+(i.p*i.qty).toFixed(2)+'</span><span class="cd" onclick="ri(\''+k+'\')"><i class="fas fa-xmark"></i></span>';ca.appendChild(d);});bs2.style.display='block';rc();}
+function tc(id){if(cart[id])cart[id].is_chronic=!cart[id].is_chronic;}
 function cq(id,d){if(!cart[id])return;cart[id].qty+=d;if(cart[id].qty<=0)delete cart[id];rct();}
 function sq(id,v){
   const i=MEDS.find(x=>x.id==id);
@@ -1851,8 +1790,25 @@ function rc(){
   document.getElementById('sv').textContent='₹'+sub.toFixed(2);
   document.getElementById('tv').textContent='₹'+tax.toFixed(2);
   document.getElementById('ttv').textContent='₹'+tot.toFixed(2);
+  const pi = document.getElementById('paid-amt');
+  if(pm !== 'credit' && pi.dataset.manual !== 'true') pi.value = tot.toFixed(2);
+  updateLiveBalance();
 }
-function sp(m){pm=m;['cash','upi','card','credit'].forEach(x=>document.getElementById('pm-'+x).classList.remove('sel'));document.getElementById('pm-'+m).classList.add('sel');}
+function updateLiveBalance() {
+    const tot = parseFloat(document.getElementById('ttv').textContent.replace('₹','')) || 0;
+    const paid = parseFloat(document.getElementById('paid-amt').value) || 0;
+    const rem = Math.max(0, tot - paid);
+    const lbl = document.getElementById('rem-bal-live');
+    if (!lbl) return;
+    if (rem > 0.01) {
+        lbl.textContent = `₹${rem.toFixed(2)} GOES TO TAB`;
+        lbl.style.color = '#ef4444';
+    } else {
+        lbl.textContent = `FULL PAYMENT`;
+        lbl.style.color = '#22c55e';
+    }
+}
+function sp(m){pm=m;['cash','upi','card','credit'].forEach(x=>document.getElementById('pm-'+x).classList.remove('sel'));document.getElementById('pm-'+m).classList.add('sel');const tot=parseFloat(document.getElementById('ttv').textContent.replace('₹',''))||0;const pi=document.getElementById('paid-amt');if(m==='credit'){pi.value=0;pi.dataset.manual='true';}else{pi.value=tot.toFixed(2);pi.dataset.manual='false';}updateLiveBalance();}
 function sm(){
   document.getElementById('man-mod').style.display='flex';
   document.getElementById('man-title').textContent='Add New Medicine';
@@ -1944,9 +1900,9 @@ function initNav(){
 }
 initNav();
 
-function rMasters(){rCustomers();if(typeof renderSmsRecipients==='function')renderSmsRecipients();rSuppliers();rDoctors();loadShelves();}
+function rMasters(){rCustomers();rSuppliers();rDoctors();loadShelves();}
 let CUSTOMERS=[];
-function rCustomers(){fetch(API+'/customers?t='+Date.now()).then(r=>r.json()).then(cs=>{CUSTOMERS=cs;const tb=document.getElementById('cust-body');const nL=document.getElementById('cust-list');const pL=document.getElementById('phone-list');if(nL&&pL){nL.innerHTML='';pL.innerHTML='';cs.forEach(x=>{nL.innerHTML+=`<option value="${x.name}">${x.phone}</option>`;pL.innerHTML+=`<option value="${x.phone}">${x.name}</option>`;});}if(!tb)return;tb.innerHTML='';if(!cs.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--dim)">No customer records.</td></tr>';return;}cs.forEach(c=>{const bal = c.balance||0; tb.innerHTML+=`<tr><td>${c.name}</td><td>${c.phone}</td><td style="text-align:center">${c.visits}</td><td style="font-weight:600;${bal>0?'color:#ef4444;':''}"><div style="font-size:12px">Bal: ₹${bal.toFixed(2)}</div><div style="font-size:10px;color:var(--mt)">Spend: ₹${c.total_spend.toFixed(2)}</div></td><td style="text-align:right"><i class="fas fa-file-invoice" style="cursor:pointer;color:#22c55e;margin-right:10px" onclick="window.open('/reports/customer-statement/${c.id}','_blank')" title="Account Statement"></i><i class="fas fa-pills" style="cursor:pointer;color:#3b82f6;margin-right:10px" onclick="window.open('/reports/prescription-history/${c.id}','_blank')" title="Prescription History"></i><i class="fas fa-book" style="cursor:pointer;color:#a78bfa;margin-right:10px" onclick="openLedger(${c.id})" title="Ledger"></i><i class="fas fa-comment-dots" style="cursor:pointer;color:var(--acc);margin-right:10px" onclick="openSmsForCustomer(${c.id})" title="SMS Customer"></i><i class="fas fa-edit" style="cursor:pointer;color:var(--acc);margin-right:10px" onclick="ecust(${c.id})"></i><i class="fas fa-trash" style="cursor:pointer;color:#e74c3c" onclick="dcust(${c.id})"></i></td></tr>`})});}
+function rCustomers(){fetch(API+'/customers?t='+Date.now()).then(r=>r.json()).then(cs=>{CUSTOMERS=cs;const tb=document.getElementById('cust-body');const nL=document.getElementById('cust-list');const pL=document.getElementById('phone-list');if(nL&&pL){nL.innerHTML='';pL.innerHTML='';cs.forEach(x=>{nL.innerHTML+=`<option value="${x.name}">${x.phone}</option>`;pL.innerHTML+=`<option value="${x.phone}">${x.name}</option>`;});}if(!tb)return;tb.innerHTML='';if(!cs.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--dim)">No customer records.</td></tr>';return;}cs.forEach(c=>{const bal = c.balance||0; tb.innerHTML+=`<tr><td>${c.name}</td><td>${c.phone}</td><td style="text-align:center">${c.visits}</td><td style="font-weight:600;${bal>0?'color:#ef4444;':''}"><div style="font-size:12px">Bal: ₹${bal.toFixed(2)}</div><div style="font-size:10px;color:var(--mt)">Spend: ₹${c.total_spend.toFixed(2)}</div></td><td style="text-align:right"><i class="fas fa-file-invoice" style="cursor:pointer;color:#22c55e;margin-right:10px" onclick="window.open('/reports/customer-statement/${c.id}','_blank')" title="Account Statement"></i><i class="fas fa-pills" style="cursor:pointer;color:#3b82f6;margin-right:10px" onclick="window.open('/reports/prescription-history/${c.id}','_blank')" title="Prescription History"></i><i class="fas fa-book" style="cursor:pointer;color:#a78bfa;margin-right:10px" onclick="openLedger(${c.id})" title="Ledger"></i><i class="fab fa-whatsapp" style="cursor:pointer;color:#25D366;margin-right:10px" onclick="openWhatsAppForCustomer('${c.name.replace(/'/g, "\\'")}', '${c.phone}')" title="WhatsApp Customer"></i><i class="fas fa-edit" style="cursor:pointer;color:var(--acc);margin-right:10px" onclick="ecust(${c.id})"></i><i class="fas fa-trash" style="cursor:pointer;color:#e74c3c" onclick="dcust(${c.id})"></i></td></tr>`})});}
 function renderFamilyHeadOptions(selectedId,currentId){const sel=document.getElementById('c-fh');if(!sel)return;const currentValue=selectedId?String(selectedId):'';sel.innerHTML='<option value="">No family account</option>'+CUSTOMERS.filter(c=>String(c.id)!==String(currentId)).map(c=>`<option value="${c.id}">${c.name} · ${c.phone||'No phone'}</option>`).join('');sel.value=currentValue;}
 function rSuppliers(){fetch(API+'/suppliers?t='+Date.now()).then(r=>r.json()).then(ss=>{SUPPLIERS=ss;const tb=document.getElementById('sup-body');if(!tb)return;tb.innerHTML='';if(!ss.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--dim)">No supplier records.</td></tr>';return;}ss.forEach(s=>tb.innerHTML+=`<tr><td>${s.name}</td><td>${s.phone}</td><td>${s.gst||'—'}</td><td><span class="bx bg">${s.status}</span></td><td style="text-align:right"><i class="fas fa-edit" style="cursor:pointer;color:var(--acc);margin-right:10px" onclick="esup(${s.id})"></i><i class="fas fa-trash" style="cursor:pointer;color:#e74c3c" onclick="dm_sup('${s.id}')"></i></td></tr>`)});}
 let DOCTORS=[];
@@ -2267,19 +2223,20 @@ function pb2(){
   const now=new Date(),ds=pd(now.getDate())+'/'+pd(now.getMonth()+1)+'/'+now.getFullYear()+' '+pd(now.getHours())+':'+pd(now.getMinutes());
   const bId=editingBillId||('B-'+(allBills.length+1));
   const savedItems=ks.map(k=>({...cart[k]})); // snapshot before clearing
-  const billData={id:bId,ts:now.getTime(),date:ds,cust:cnInp,phone:cpInp,doctor:cdrInp,pay:pm,sub:sub,disc:da+modeDisc,tax:tax,total:tot,items:savedItems,prescription:rxBase64,customer_type:custType,bill_type:billType,discount_type:dt,discount_value:dv};
+  const paidAmt = parseFloat(document.getElementById('paid-amt').value)||0;
+  const billData={id:bId,ts:now.getTime(),date:ds,cust:cnInp,phone:cpInp,doctor:cdrInp,pay:pm,sub:sub,disc:da+modeDisc,tax:tax,total:tot,paid_amount:paidAmt,items:savedItems,prescription:rxBase64,customer_type:custType,bill_type:billType,discount_type:dt,discount_value:dv};
   console.log('Final Bill Payload prescription length:', (billData.prescription||'').length);
 
   const saveMethod=editingBillId?'PATCH':'POST';
   const saveUrl=editingBillId?`${API}/bills/${encodeURIComponent(editingBillId)}`:`${API}/bills`;
   fetch(saveUrl,{method:saveMethod,headers:{'Content-Type':'application/json'},body:JSON.stringify(billData)})
   .then(r=>{if(!r.ok)throw new Error('Server returned '+r.status);return r.json();})
-  .then(()=>{
+  .then(respData=>{
     // ALL UI refreshes happen AFTER server confirms save
     rKpis();
     loadInventory();
     rMasters();
-    if(typeof refreshSmsCenter === 'function') refreshSmsCenter();
+    if(typeof rInsights === 'function') rInsights();
     rxBase64='';
     editingBillId='';
     const btn=document.getElementById('btn-rx'), prev=document.getElementById('rx-preview');
@@ -2293,17 +2250,37 @@ function pb2(){
     document.getElementById('cdr').value='';
     document.getElementById('cust-type').value='customer';
     document.getElementById('bill-type').value='retail';
+    const piEl=document.getElementById('paid-amt'); piEl.value=0; piEl.dataset.manual='false';
     if(document.getElementById('pos-face-vector'))document.getElementById('pos-face-vector').value='';
     renderHeldBills();
     generateWantedList();
     // Print receipt
+    const paidAmtVal = parseFloat(piEl.value)||0;
+    const remainingOnBill = Math.max(0, tot - paidAmtVal);
+    
+    // Use the latest balance returned by the server if available
+    const finalTotalBal = (respData.customer && respData.customer.balance !== undefined) 
+                          ? respData.customer.balance 
+                          : remainingOnBill;
+    
+    let balLineWa = '';
+    let balLinePrint = '';
+    
+    if (finalTotalBal > 0) {
+        balLineWa = `\\nPaid: Rs. ${paidAmtVal.toFixed(2)}\\nRemaining: Rs. ${remainingOnBill.toFixed(2)}\\n*Total Outstanding:* Rs. ${finalTotalBal.toFixed(2)}`;
+        balLinePrint = `<tr><td>Paid Today</td><td class="r">₹${paidAmtVal.toFixed(2)}</td></tr><tr><td style="font-weight:bold">Remaining (On Tab)</td><td class="r" style="font-weight:bold">₹${remainingOnBill.toFixed(2)}</td></tr><tr style="border-top:1px solid #000"><td style="font-weight:bold">Account Balance</td><td class="r" style="font-weight:bold">₹${finalTotalBal.toFixed(2)}</td></tr>`;
+    } else {
+        balLineWa = `\\nPayment Status: PAID (FULL)`;
+        balLinePrint = `<tr><td colspan="2" style="text-align:center;padding-top:5px;color:#22c55e;font-weight:bold">FULLY PAID</td></tr>`;
+    }
+
     const itemsStrForWa = savedItems.map(i=>`- ${i.n} (Qty:${i.qty}) : Rs.${(i.p*i.qty).toFixed(2)}`).join('\\n');
-    const waMsg = `Hello ${cnInp},\\n\\nYour bill for Rs. ${tot.toFixed(2)} is ready.\\n\\n*Purchases:*\\n${itemsStrForWa}\\nSubtotal: Rs. ${sub.toFixed(2)}\\nDiscount: Rs. ${(da+modeDisc).toFixed(2)}\\nGST: Rs. ${tax.toFixed(2)}\\n*Total: Rs. ${tot.toFixed(2)}*\\n\\nThank you for visiting Selvam Medicals!`;
+    const waMsg = `Hello ${cnInp},\\n\\nYour bill for Rs. ${tot.toFixed(2)} is ready.\\n\\n*Purchases:*\\n${itemsStrForWa}\\nSubtotal: Rs. ${sub.toFixed(2)}\\nDiscount: Rs. ${(da+modeDisc).toFixed(2)}\\nGST: Rs. ${tax.toFixed(2)}\\n*Total: Rs. ${tot.toFixed(2)}*${balLineWa}\\n\\nThank you for visiting Selvam Medicals!`;
     const waBtn = cpInp ? `<button class="no-print" style="margin-top:20px;width:100%;padding:10px;background:#25D366;color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:bold;font-size:14px" onclick="let phone='${cpInp.replace(/\\D/g,'')}';if(phone.length===10)phone='91'+phone;window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(\`${waMsg}\`), '_blank');">Send WhatsApp Receipt</button>` : '';
 
     const rows=savedItems.map(i=>'<tr><td>'+i.n+'</td><td style="text-align:center">'+i.qty+'</td><td style="text-align:right">₹'+i.p+'</td><td style="text-align:right">₹'+(i.p*i.qty).toFixed(2)+'</td></tr>').join('');
     const w=window.open('','_blank','width=400,height=580');
-    w.document.write('<!DOCTYPE html><html><head><title>Bill</title><style>body{font-family:Courier New,monospace;padding:18px;font-size:12px}h2{text-align:center;font-size:17px;margin:0}p{margin:2px 0;text-align:center;font-size:10px;color:#555}hr{border:none;border-top:1px dashed #999;margin:8px 0}table{width:100%;border-collapse:collapse}th{border-bottom:1px solid #000;padding:3px 0;text-align:left;font-size:11px}td{padding:3px 0;font-size:11px}.r{text-align:right}.tot{font-weight:700;border-top:1px dashed #999}@media print{.no-print{display:none;}}</style></head><body><h2>SELVAM MEDICALS</h2><p>Pharmacy & Health Store | Ph: 044-XXXXXXXX</p><hr/><p style="text-align:left">Bill: #'+bId+' | Date: '+ds+'</p><p style="text-align:left;margin-bottom:6px;">'+custType.toUpperCase()+': '+cnInp+' | Phone: '+cpInp+' | Ref: '+(cdrInp||'-')+'</p><p style="text-align:left">Pay: '+pm.toUpperCase()+' | Type: '+billType.toUpperCase()+'</p><hr/><table><thead><tr><th>Medicine</th><th style="text-align:center">Qty</th><th class="r">MRP</th><th class="r">Amt</th></tr></thead><tbody>'+rows+'</tbody></table><hr/><table><tr><td>Subtotal</td><td class="r">₹'+sub.toFixed(2)+'</td></tr><tr><td>Discount</td><td class="r">-₹'+(da+modeDisc).toFixed(2)+'</td></tr><tr><td>GST 5%</td><td class="r">₹'+tax.toFixed(2)+'</td></tr><tr class="tot"><td>TOTAL</td><td class="r">₹'+tot.toFixed(2)+'</td></tr></table><p style="margin-top:12px">Thank you! Get well soon 💊</p>'+waBtn+'<scr'+'ipt>window.print();<\/scr'+'ipt></body></html>');
+    w.document.write('<!DOCTYPE html><html><head><title>Bill</title><style>body{font-family:Courier New,monospace;padding:18px;font-size:12px}h2{text-align:center;font-size:17px;margin:0}p{margin:2px 0;text-align:center;font-size:10px;color:#555}hr{border:none;border-top:1px dashed #999;margin:8px 0}table{width:100%;border-collapse:collapse}th{border-bottom:1px solid #000;padding:3px 0;text-align:left;font-size:11px}td{padding:3px 0;font-size:11px}.r{text-align:right}.tot{font-weight:700;border-top:1px dashed #999}@media print{.no-print{display:none;}}</style></head><body><h2>SELVAM MEDICALS</h2><p>Pharmacy & Health Store | Ph: 044-XXXXXXXX</p><hr/><p style="text-align:left">Bill: #'+bId+' | Date: '+ds+'</p><p style="text-align:left;margin-bottom:6px;">'+custType.toUpperCase()+': '+cnInp+' | Phone: '+cpInp+' | Ref: '+(cdrInp||'-')+'</p><p style="text-align:left">Pay: '+pm.toUpperCase()+' | Type: '+billType.toUpperCase()+'</p><hr/><table><thead><tr><th>Medicine</th><th style="text-align:center">Qty</th><th class="r">MRP</th><th class="r">Amt</th></tr></thead><tbody>'+rows+'</tbody></table><hr/><table><tr><td>Subtotal</td><td class="r">₹'+sub.toFixed(2)+'</td></tr><tr><td>Discount</td><td class="r">-₹'+(da+modeDisc).toFixed(2)+'</td></tr><tr><td>GST 5%</td><td class="r">₹'+tax.toFixed(2)+'</td></tr><tr class="tot"><td>BILL TOTAL</td><td class="r">₹'+tot.toFixed(2)+'</td></tr>'+balLinePrint+'</table><p style="margin-top:12px">Thank you! Get well soon 💊</p>'+waBtn+'<scr'+'ipt>window.print();<\/scr'+'ipt></body></html>');
     w.document.close();
   }).catch(e=>alert('Bill Save Error: '+e.message));
 }
@@ -2688,12 +2665,12 @@ window.onload = () => {
   if(typeof rMasters === 'function') rMasters();
   if(typeof rPurchases === 'function') rPurchases();
   fetch(API+'/medicines').then(r=>r.json()).then(ms=>{
-      MEDS=ms; filteredMeds=ms; 
-      if(typeof rmed === 'function') rmed(ms);
-      if(typeof rItems === 'function') rItems(ms);
+      const items = ms.items || ms;
+      MEDS=items; filteredMeds=items; 
+      if(typeof rmed === 'function') rmed(items);
+      if(typeof rItems === 'function') rItems(items);
       if(typeof generateWantedList==='function')generateWantedList();
   }).catch(e=>console.log(e));
-  setTimeout(() => { if(typeof refreshSmsCenter === 'function') refreshSmsCenter(); }, 1000);
 
   // Customer Sync
   document.getElementById('cn').addEventListener('input', e => {
@@ -2712,222 +2689,73 @@ window.onload = () => {
   }, 5000);
 };
 
-let SMS_MESSAGES=[];
-let SMS_TEMPLATES=[];
-
-function smsTimeLabel(ts){
-  if(!ts)return '—';
-  const d=new Date(Number(ts));
-  return Number.isNaN(d.getTime())?'—':`${pd(d.getDate())}/${pd(d.getMonth()+1)} ${pd(d.getHours())}:${pd(d.getMinutes())}`;
+function openWhatsAppForCustomer(name, phone) {
+    const msg = `Hello ${name}, this is Selvam Medicals. How can we help you today?`;
+    const url = `https://wa.me/91${phone}?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank');
 }
 
-function smsStatusClass(status){
-  const s=String(status||'').toLowerCase();
-  if(['sent','delivered','queued','pending','sending'].includes(s))return 'bg';
-  if(['failed','error'].includes(s))return 'br';
-  return 'bo';
+function sendRefillReminder(name, phone, item) {
+    const msg = `Hello ${name}, this is a friendly reminder from Selvam Medicals. Your monthly supply of ${item} is about to finish. Would you like us to keep your refill ready for you?`;
+    const url = `https://wa.me/91${phone}?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank');
 }
 
-function smsTemplateById(id){return SMS_TEMPLATES.find(t=>String(t.id)===String(id));}
-function smsCustomerById(id){return CUSTOMERS.find(c=>String(c.id)===String(id));}
-function smsBillById(id){return allBills.find(b=>String(b.id)===String(id))||null;}
-
-function smsDraftContext(){
-  const customerId=document.getElementById('sms-customer')?.value||'';
-  const customer=smsCustomerById(customerId);
-  const phone=document.getElementById('sms-phone')?.value.trim()||customer?.phone||document.getElementById('cp')?.value.trim()||'';
-  const billId=document.getElementById('sms-bill')?.value.trim()||'';
-  const bill=smsBillById(billId);
-  return {
-    recipient_phone: phone,
-    customer_id: customer?.id||'',
-    customer_name: customer?.name||document.getElementById('cn')?.value.trim()||'',
-    bill_id: billId,
-    bill_total: bill?.total||'',
-    bill_date: bill?.date||'',
-    item_name: bill?.items?.[0]?.n||'',
-    stock_qty: bill?.items?.[0]?.qty||'',
-    due_amount: bill?.total||'',
-    store_name: 'Selvam Medicals'
-  };
-}
-
-function smsRenderTemplate(body, ctx){
-  return String(body||'').replace(/\{(\w+)\}/g,(_,key)=>ctx[key]===undefined||ctx[key]===null?'':String(ctx[key]));
-}
-
-function renderSmsRecipients(){
-  const sel=document.getElementById('sms-customer');
-  if(!sel)return;
-  const current=sel.value;
-  sel.innerHTML='<option value="">Select customer</option>'+CUSTOMERS.map(c=>`<option value="${c.id}">${c.name} · ${c.phone}</option>`).join('');
-  sel.value=current;
-}
-
-function renderSmsTemplates(){
-  const sel=document.getElementById('sms-template');
-  if(!sel)return;
-  const current=sel.value;
-  sel.innerHTML='<option value="">Custom Message</option>'+SMS_TEMPLATES.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
-  sel.value=current;
-}
-
-function renderSmsHistory(){
-  const tb=document.getElementById('sms-history-body');
-  if(!tb)return;
-  if(!SMS_MESSAGES.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--dim)">No SMS messages yet.</td></tr>';return;}
-  tb.innerHTML=SMS_MESSAGES.map(m=>{
-    const preview=(m.body||'').length>70?m.body.slice(0,67)+'...':(m.body||'');
-    return `<tr>
-      <td><div style="font-weight:600">${m.recipient_phone||'—'}</div><div style="font-size:10px;color:var(--mt)">${m.customer_name||'Walk-in'}</div></td>
-      <td>${m.template_id?((smsTemplateById(m.template_id)||{}).name||m.message_type||'Template'):(m.message_type||'Custom')}</td>
-      <td style="font-size:11px;color:var(--mt);max-width:280px">${preview||'—'}</td>
-      <td><span class="bx ${smsStatusClass(m.send_status)}">${m.send_status||'queued'}</span>${m.failure_reason?`<div style="font-size:10px;color:#ef4444;margin-top:4px;max-width:180px">${m.failure_reason}</div>`:''}</td>
-      <td style="font-size:11px">${smsTimeLabel(m.sent_ts||m.updated_ts||m.created_ts)}</td>
-      <td style="text-align:right"><button class="btn btn-out" style="padding:4px 8px;font-size:10px" onclick="retrySmsMessage('${m.id}')">Retry</button></td>
-    </tr>`;
-  }).join('');
-}
-
-function smsPickCustomer(customerId){
-  const customer=smsCustomerById(customerId);
-  const phone=document.getElementById('sms-phone');
-  if(phone)phone.value=customer?.phone||'';
-}
-
-function smsApplyTemplate(templateId){
-  const template=smsTemplateById(templateId);
-  const bodyEl=document.getElementById('sms-compose-body');
-  if(!bodyEl)return;
-  bodyEl.value=template?smsRenderTemplate(template.body, smsDraftContext()):'';
-}
-
-function smsQuickTemplate(mode){
-  const template=SMS_TEMPLATES.find(t=>t.message_type===mode)||smsTemplateById(mode);
-  const templateSel=document.getElementById('sms-template');
-  if(templateSel)templateSel.value=template?template.id:'';
-  const bodyEl=document.getElementById('sms-compose-body');
-  if(bodyEl)bodyEl.value=template?smsRenderTemplate(template.body, smsDraftContext()):'';
-}
-
-function smsFillFromBill(bill){
-  const phone=document.getElementById('sms-phone');
-  const cust=document.getElementById('sms-customer');
-  const billEl=document.getElementById('sms-bill');
-  if(phone)phone.value=bill?.phone||'';
-  if(cust){
-    const match=CUSTOMERS.find(x=>x.phone===bill?.phone||x.name===bill?.cust);
-    cust.value=match?String(match.id):'';
-  }
-  if(billEl)billEl.value=bill?.id||'';
-  const template=SMS_TEMPLATES.find(t=>t.message_type==='bill_ready')||smsTemplateById('tpl-bill-ready');
-  const templateSel=document.getElementById('sms-template');
-  if(templateSel)templateSel.value=template?template.id:'';
-  const bodyEl=document.getElementById('sms-compose-body');
-  if(bodyEl&&template){
-    bodyEl.value=smsRenderTemplate(template.body,{
-      ...smsDraftContext(),
-      bill_id: bill?.id||'',
-      bill_total: bill?.total||'',
-      bill_date: bill?.date||'',
-      customer_name: bill?.cust||document.getElementById('cn')?.value.trim()||'',
-      recipient_phone: bill?.phone||document.getElementById('cp')?.value.trim()||''
+function dnWaste(){
+    fetch(API+"/inventory/adjustments").then(res=>res.json()).then(data=>{
+        let csv="Date,Item,Batch,Qty,Reason,Remarks\n";
+        data.forEach(a=>csv+=`"${a.date}","${a.item}","${a.batch}","${a.qty}","${a.reason}","${a.remarks}"\n`);
+        const blob=new Blob([csv],{type:"text/csv"}), url=window.URL.createObjectURL(blob), a=document.createElement("a");
+        a.href=url; a.download="Waste_Damage_Logs.csv"; a.click();
     });
-  }
 }
 
-function openSmsForCustomer(customerId){
-  const customer=smsCustomerById(customerId);
-  sw('sms',document.querySelector('.ni[data-panel="sms"]'));
-  refreshSmsCenter().then(()=>{
-    if(customer){
-      const custSel=document.getElementById('sms-customer');
-      const phone=document.getElementById('sms-phone');
-      if(custSel)custSel.value=String(customer.id);
-      if(phone)phone.value=customer.phone||'';
-      const billEl=document.getElementById('sms-bill');
-      if(billEl)billEl.value='';
-      smsQuickTemplate('reminder');
+function rWasteRep(){
+    const m=document.getElementById("rep-mod"), t=document.getElementById("rep-title"), c=document.getElementById("rep-content"), pb=document.getElementById("rep-print-btn");
+    if(t) t.textContent="Damage & Waste Analysis";
+    if(pb) pb.style.display="none";
+    fetch(API+"/inventory/adjustments").then(res=>res.json()).then(data=>{
+        let rows=data.map(a=>`<tr><td>${a.date}</td><td>${a.item}</td><td>${a.batch}</td><td style="color:#ef4444;font-weight:600">${a.qty}</td><td><span class="bx br">${a.reason}</span></td><td style="font-size:11px;color:var(--mt)">${a.remarks||"—"}</td></tr>`).join("");
+        if(c) c.innerHTML=`<div class="tw"><table><thead><tr><th>Date</th><th>Medicine</th><th>Batch</th><th>Qty</th><th>Reason</th><th>Remarks</th></tr></thead><tbody>${rows||"<tr><td colspan='6' style='text-align:center'>No records found.</td></tr>"}</tbody></table></div>`;
+    });
+    if(m) m.style.display="flex";
+}
+
+function openWaste(id){
+    const m=MEDS.find(x=>x.id==id);
+    if(!m)return;
+    const mod=document.getElementById('waste-mod');
+    document.getElementById('waste-id').value=m.id;
+    document.getElementById('waste-title').textContent='Record Damage/Waste: '+m.n;
+    const batchSel=document.getElementById('waste-batch');
+    if(m.batches && m.batches.length > 0){
+        batchSel.innerHTML = m.batches.map(b=>`<option value="${b.id}">${b.no} (Stock: ${b.qty})</option>`).join('');
+    } else {
+        batchSel.innerHTML = `<option value="">Default Batch (Stock: ${m.s})</option>`;
     }
-  });
+    if(mod) mod.style.display='flex';
 }
 
-function openSmsForBill(billId){
-  sw('sms',document.querySelector('.ni[data-panel="sms"]'));
-  const bill=smsBillById(billId);
-  refreshSmsCenter().then(()=>{ if(bill)smsFillFromBill(bill); });
-}
-
-function openSmsDraftFromBill(){
-  sw('sms',document.querySelector('.ni[data-panel="sms"]'));
-  const draft={
-    id: nextBillNo(),
-    cust: document.getElementById('cn')?.value.trim()||'',
-    phone: document.getElementById('cp')?.value.trim()||'',
-    total: parseFloat((document.getElementById('ttv')?.textContent||'0').replace(/[^\d.]/g,''))||0,
-    date: new Date().toLocaleDateString()
-  };
-  refreshSmsCenter().then(()=>smsFillFromBill(draft));
-}
-
-function refreshSmsCenter(){
-  const status=document.getElementById('sms-sync-state');
-  if(status)status.textContent='Loading...';
-  return Promise.all([
-    fetch(API+'/sms/templates?t='+Date.now()).then(r=>r.json()),
-    fetch(API+'/sms/messages?t='+Date.now()).then(r=>r.json())
-  ]).then(([templates,messages])=>{
-    SMS_TEMPLATES=templates||[];
-    SMS_MESSAGES=messages||[];
-    renderSmsRecipients();
-    renderSmsTemplates();
-    renderSmsHistory();
-    if(status)status.textContent=`${SMS_MESSAGES.length} message(s)`;
-  }).catch(err=>{
-    if(status)status.textContent='SMS load failed';
-    console.log('SMS load failed', err);
-  });
-}
-
-function sendSmsMessage(){
-  const recipient_phone=document.getElementById('sms-phone')?.value.trim()||'';
-  const customerId=document.getElementById('sms-customer')?.value||'';
-  const customer=smsCustomerById(customerId);
-  const body=document.getElementById('sms-compose-body')?.value.trim()||'';
-  const templateId=document.getElementById('sms-template')?.value||'';
-  const billId=document.getElementById('sms-bill')?.value.trim()||'';
-  if(!recipient_phone){alert('Enter a recipient phone number.');return;}
-  if(!body){alert('Enter a message body or choose a template.');return;}
-  const template=smsTemplateById(templateId);
-  const payload={
-    recipient_phone,
-    customer_id: customerId,
-    customer_name: customer?.name||document.getElementById('cn')?.value.trim()||'',
-    bill_id: billId,
-    template_id: templateId,
-    message_type: template?.message_type || (billId ? 'bill_ready' : 'custom'),
-    body,
-    source: 'dashboard',
-    auto_send: true
-  };
-  fetch(API+'/sms/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
-    .then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.message||'Failed to send SMS')});return r.json();})
-    .then(msg=>{
-      SMS_MESSAGES=[msg,...SMS_MESSAGES.filter(x=>x.id!==msg.id)];
-      renderSmsHistory();
-      alert(`SMS ${msg.send_status||'queued'}.`);
-    })
-    .catch(err=>alert('SMS send failed: '+err.message));
-}
-
-function retrySmsMessage(messageId){
-  fetch(API+`/sms/messages/${messageId}/retry`,{method:'POST'})
-    .then(r=>{if(!r.ok)return r.json().then(e=>{throw new Error(e.message||'Retry failed')});return r.json();})
-    .then(msg=>{
-      SMS_MESSAGES=SMS_MESSAGES.map(x=>x.id===msg.id?msg:x);
-      renderSmsHistory();
-    })
-    .catch(err=>alert('Retry failed: '+err.message));
+function saveWaste(){
+    const id=document.getElementById('waste-id').value;
+    const batch_id=document.getElementById('waste-batch').value;
+    const qty=parseInt(document.getElementById('waste-qty').value);
+    const reason=document.getElementById('waste-reason').value;
+    const remarks=document.getElementById('waste-remarks').value;
+    if(!qty || qty <= 0){ alert('Enter valid quantity'); return; }
+    fetch(API+'/inventory/adjust',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ batch_id: batch_id, qty: -qty, reason: reason, remarks: remarks })
+    }).then(res=>res.json()).then(data=>{
+        if(data.status==='success'){
+            document.getElementById('waste-mod').style.display='none';
+            loadInventory();
+            alert('Recorded successfully');
+        } else {
+            alert('Error: '+data.message);
+        }
+    });
 }
 
 function openLedger(customerId) {
@@ -3333,9 +3161,8 @@ async function rInsights() {
                     <div style="font-weight:600">₹${c.total_spend.toLocaleString()}</div>
                     <div style="font-size:10px;color:#ef4444">${c.days_since_last_visit} days ago</div>
                 </td>
-                <td style="text-align:right;padding:14px"><button class="btn btn-out" style="padding:5px 10px;font-size:10px" onclick="sw('sms')">Notify</button></td>
             </tr>
-        `).join('') || '<tr><td colspan="3" style="text-align:center;padding:40px">No high-risk customers</td></tr>';
+        `).join('') || '<tr><td colspan="2" style="text-align:center;padding:40px;color:var(--dim)">No high-risk customers</td></tr>';
 
         // Customer Lifetime Value (RFM)
         const clvBody = document.getElementById('clv-body');
@@ -3388,20 +3215,21 @@ async function rInsights() {
                 <tr>
                     <td style="padding:14px">
                         <div style="font-weight:600">${r.customer_name}</div>
-                        <div style="font-size:10px;color:var(--mt)">${r.phone}</div>
+                        <div style="font-size:11px;color:var(--mt)">${r.phone}</div>
                     </td>
                     <td style="padding:14px">
-                        <div style="font-weight:600;color:var(--tx)">${r.item_name}</div>
-                        <div style="font-size:10px;color:var(--dim)">Last: ${new Date(r.last_purchase).toLocaleDateString()}</div>
+                        <div style="font-weight:600">${r.item_name}</div>
+                        <div style="font-size:10px;color:${r.days_remaining < 0 ? '#ef4444' : '#f5a623'}">
+                            ${r.days_remaining < 0 ? 'Overdue by ' + Math.abs(r.days_remaining) : 'Due in ' + r.days_remaining} days
+                        </div>
                     </td>
                     <td style="text-align:right;padding:14px">
-                        <span class="hold-chip" style="background:${r.days_remaining <= 0 ? '#ef4444' : '#f5a623'}20;color:${r.days_remaining <= 0 ? '#ef4444' : '#f5a623'};border:none;padding:4px 8px;font-weight:700;font-size:10px">
-                            ${r.days_remaining <= 0 ? 'Due Now' : 'In ' + r.days_remaining + 'd'}
-                        </span>
-                        <button class="btn btn-out" style="padding:4px 8px;font-size:10px;margin-left:8px" onclick="sw('sms')"><i class="fas fa-bell"></i></button>
+                        <button class="btn btn-out" style="padding:4px 8px;border-color:#22c55e;color:#22c55e" onclick="sendRefillReminder('${r.customer_name}', '${r.phone}', '${r.item_name}')">
+                            <i class="fab fa-whatsapp"></i>
+                        </button>
                     </td>
                 </tr>
-            `).join('') || '<tr><td colspan="3" style="text-align:center;padding:40px">No upcoming refills</td></tr>';
+            `).join('') || '<tr><td colspan="3" style="text-align:center;padding:40px;color:var(--dim)">No refills due soon</td></tr>';
         }
 
     } catch (e) {
@@ -3666,6 +3494,31 @@ function speakGreeting(name, title) {
     <div style="margin-top:20px;text-align:right">
         <button class="btn btn-out" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
     </div>
+  </div>
+</div>
+
+<!-- WASTE MODAL -->
+<div id="waste-mod" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center;">
+  <div class="crd fm" style="width:400px;padding:22px;background:var(--card);box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+    <div style="font-size:15px;font-weight:600;margin-bottom:16px;color:#e8ecf4;display:flex;justify-content:space-between;align-items:center;">
+      <span id="waste-title" style="flex:1">Record Damage/Waste</span>
+      <i class="fas fa-xmark" style="cursor:pointer;color:var(--mt)" onclick="document.getElementById('waste-mod').style.display='none'"></i>
+    </div>
+    <input type="hidden" id="waste-id"/>
+    <label>Select Batch</label>
+    <select id="waste-batch" style="width:100%;background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px;color:var(--tx);margin-bottom:10px;"></select>
+    <label>Quantity to Deduct</label>
+    <input type="number" id="waste-qty" placeholder="Units damaged/lost" style="width:100%;background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px;color:var(--tx);margin-bottom:10px;"/>
+    <label>Reason</label>
+    <select id="waste-reason" style="width:100%;background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px;color:var(--tx);margin-bottom:10px;">
+        <option value="DAMAGE">Damage / Broken</option>
+        <option value="EXPIRED">Expired</option>
+        <option value="THEFT">Missing / Theft</option>
+        <option value="CORRECTION">Audit Correction</option>
+    </select>
+    <label>Remarks</label>
+    <textarea id="waste-remarks" rows="3" placeholder="Additional details..." style="width:100%;background:#252a40;border:1px solid var(--brd);border-radius:6px;padding:7px;color:var(--tx);margin-bottom:15px;"></textarea>
+    <button class="btn btn-acc" style="width:100%;justify-content:center;padding:11px" onclick="saveWaste()"><i class="fas fa-check"></i> Save Adjustment</button>
   </div>
 </div>
 
