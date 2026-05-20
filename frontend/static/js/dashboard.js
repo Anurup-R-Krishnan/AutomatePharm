@@ -62,6 +62,7 @@ function speakGreeting(name, title) {
 
 let faceDetectionInterval = null;
 let modelsLoaded = false;
+let lastFaceMatch = 0; // Phase 3: throttle face-match API
 
 function cancelFaceScan() {
     if(faceStream) {
@@ -154,7 +155,22 @@ async function triggerFaceScan() {
   status.textContent = 'Preparing system...';
   status.style.color = 'var(--tx)';
 
-  // 1. Lazy load models
+  // 1. Wait for face-api.js to load (in case defer is still running)
+  if(typeof faceapi === 'undefined') {
+    status.textContent = 'Initializing AI Engine...';
+    let attempts = 0;
+    while (typeof faceapi === 'undefined' && attempts < 50) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      attempts++;
+    }
+    if(typeof faceapi === 'undefined') {
+      status.textContent = 'AI Engine failed to load.';
+      status.style.color = '#ef4444';
+      setTimeout(() => { modal.style.display = 'none'; }, 3000);
+      return;
+    }
+  }
+
   if(!modelsLoaded) {
     status.textContent = 'Loading AI Models...';
     try {
@@ -198,7 +214,10 @@ async function triggerFaceScan() {
           const resized = faceapi.resizeResults(detections, dims);
           faceapi.draw.drawDetections(canvas, resized);
 
-          // 3. Matching logic (Server-side)
+          // 3. Matching logic (Server-side) – throttled: max 1 API call/second
+          const _faceNow = Date.now();
+          if (_faceNow - lastFaceMatch < 1000) return;
+          lastFaceMatch = _faceNow;
           try {
             const response = await fetch(API + '/customers/face-match', {
               method: 'POST',
@@ -264,6 +283,7 @@ tk();setInterval(tk,1000);
 // Nav
 const ROLE_ACCESS={
   owner_technical:['*'],
+  admin:['*'],
   super_user:['sales','purchase','item','masters','reorder','system','utilities','sms','settings','users'],
   manager:['sales','purchase','item','masters','reorder','utilities','sms'],
   user:['sales','reorder']
@@ -272,7 +292,8 @@ let APP_USERS=[],CUR_USER_ID='owner-tech';
 function roleCanAccess(panel){
   const u=APP_USERS.find(x=>x.id===CUR_USER_ID)||APP_USERS[0];
   if(!u)return true;
-  const allow=ROLE_ACCESS[u.role]||[];
+  const roleName = (u.role || 'user').toLowerCase();
+  const allow=ROLE_ACCESS[roleName]||[];
   return allow.includes('*')||allow.includes(panel);
 }
 function sw(k,el){
@@ -286,6 +307,21 @@ function sw(k,el){
   document.querySelectorAll('.pn').forEach(x=>x.classList.remove('on'));
   const pn=document.getElementById('p-'+k);
   if(pn)pn.classList.add('on');
+  // Lazy panel data loading – only fetch what this panel needs
+  if(k==='utilities'){
+    if(!allBills.length) loadBills(true);
+  }
+  if(k==='reorder'){
+    if(!allBills.length) loadBills(true, ()=>{ if(typeof generateWantedList==='function') generateWantedList(); });
+    else if(typeof generateWantedList==='function') generateWantedList();
+  }
+  if(k==='insights' || k==='staff-performance'){
+    if(!allBills.length) loadBills(true, ()=>{ if(typeof rInsights==='function') rInsights(); });
+    else if(typeof rInsights==='function') rInsights();
+  }
+  if(k==='item') loadInventory();
+  if(k==='purchase') rPurchases();
+  if(k==='masters') rMasters();
 }
 // Log
 function doLogout(){if(confirm('Logout?'))window.close();}
@@ -294,6 +330,11 @@ function stab(el,id){document.querySelectorAll('.tab').forEach(x=>x.classList.re
 // POS
 // POS
 let MEDS=[], SHELVES=[], cart={}, pm='cash', AM=[];
+let MEDS_LAST_LOADED = 0;        // timestamp of last successful medicine fetch
+const MEDS_CACHE_TTL = 60000;    // skip re-fetch if data is < 60 s old
+let BILLS_OFFSET = 0;            // pagination cursor for bills
+const BILLS_PAGE_SIZE = 150;     // bills per page
+let BILLS_TOTAL = 0;             // total bills count reported by server
 let heldBills=JSON.parse(localStorage.getItem('heldBills')||'[]');
 let purchaseImportRows=[];
 let connectorSites=JSON.parse(localStorage.getItem('connectorSites')||'[{"id":"site-retailio","name":"Retailio","catalog":["Dolo 650mg","Augmentin 625","Pantoprazole 40","Ondansetron 4mg"]}]');
@@ -547,8 +588,42 @@ function updateShelfPreview(){
   preview.value=shelf?shelf.label:'Unassigned';
   medSel.onchange=updateShelfPreview;
 }
-function rmed(list){const g=document.getElementById('mg');g.innerHTML='';if(!list.length){g.innerHTML='<div style="color:var(--mt);font-size:12px;padding:16px;grid-column:1/-1">No medicines found.</div>';return;}list.forEach(m=>{const d=document.createElement('div');let scl='';if(m.s<=0)scl=' os';else if(m.s<15)scl=' ls';d.className='mc'+scl;d.tabIndex=0;d.onclick=(e)=>{if(!e.target.closest('.madd')&&!e.target.closest('.mdel')&&!e.target.closest('.mst'))at(m.id);};const db=`<div class="mdel" title="Delete" onclick="dm('${m.id}');event.stopPropagation()"><i class="fas fa-trash"></i></div>`;d.innerHTML='<div class="mn" title="'+m.n+'">'+m.n+'</div><div class="mcat">'+m.g+' · '+m.c+'</div><div style="font-size:10px;color:var(--mt);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+shelfLabel(m)+'</div><div class="mr"><div class="mp">₹'+m.p+'</div><div class="mst" onclick="editMed(\''+m.id+'\');event.stopPropagation()" title="Edit Medicine">'+m.s+' units <i class="fas fa-pen" style="font-size:8.5px;opacity:0.6"></i></div><div style="display:flex;align-items:center;gap:6px;">'+db+'<div class="madd" onclick="at(\''+m.id+'\');event.stopPropagation()"><i class="fas fa-plus"></i></div></div></div>';g.appendChild(d);});}
-function rItems(list){const tb=document.getElementById('inv-body');if(!tb)return;tb.innerHTML='';if(!list.length){tb.innerHTML='<tr><td colspan="16" style="text-align:center;color:var(--dim)">No items found.</td></tr>';return;}list.forEach(m=>{const st=m.s<=0?'<span class="bx br">Out</span>':(m.s<15?'<span class="bx br" style="background:#f59e0b">Low</span>':'<span class="bx bg">OK</span>');tb.innerHTML+=`<tr><td style="position:sticky;left:0;background:var(--card);border-right:1px solid var(--brd);font-weight:600">${m.n}</td><td>${shelfLabel(m)}</td><td>${m.batch||'—'}</td><td>${m.expiry||'—'}</td><td>₹${m.p_rate}</td><td>${m.p_packing||'—'}</td><td>₹${m.p}</td><td>${m.s_packing||'—'}</td><td>${m.s}</td><td>${m.p_gst}%</td><td>${m.s_gst}%</td><td>${m.disc}%</td><td>${m.offer||'None'}</td><td>${m.reorder}</td><td>${m.max_qty}</td><td style="text-align:right"><button class="btn btn-out" style="padding:4px 8px" onclick="editMed('${m.id}')"><i class="fas fa-pen"></i></button></td></tr>`;});}
+function rmed(list){
+  const g=document.getElementById('mg');
+  g.innerHTML='';
+  if(!list.length){g.innerHTML='<div style="color:var(--mt);font-size:12px;padding:16px;grid-column:1/-1">No medicines found.</div>';return;}
+  // Prevent DOM bloat: only render top 100 results for POS
+  const toRender = list.slice(0, 100);
+  toRender.forEach(m=>{
+    const d=document.createElement('div');
+    let scl='';if(m.s<=0)scl=' os';else if(m.s<15)scl=' ls';
+    d.className='mc'+scl;d.tabIndex=0;
+    d.onclick=(e)=>{if(!e.target.closest('.madd')&&!e.target.closest('.mdel')&&!e.target.closest('.mst'))at(m.id);};
+    const db=`<div class="mdel" title="Delete" onclick="dm('${m.id}');event.stopPropagation()"><i class="fas fa-trash"></i></div>`;
+    d.innerHTML='<div class="mn" title="'+m.n+'">'+m.n+'</div><div class="mcat">'+m.g+' · '+m.c+'</div><div style="font-size:10px;color:var(--mt);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+shelfLabel(m)+'</div><div class="mr"><div class="mp">₹'+m.p+'</div><div class="mst" onclick="editMed(\''+m.id+'\');event.stopPropagation()" title="Edit Medicine">'+m.s+' units <i class="fas fa-pen" style="font-size:8.5px;opacity:0.6"></i></div><div style="display:flex;align-items:center;gap:6px;">'+db+'<div class="madd" onclick="at(\''+m.id+'\');event.stopPropagation()"><i class="fas fa-plus"></i></div></div></div>';
+    g.appendChild(d);
+  });
+  if(list.length > 100){
+    const d=document.createElement('div');
+    d.style.cssText="color:var(--mt);font-size:12px;padding:16px;grid-column:1/-1;text-align:center";
+    d.textContent = `+ ${list.length - 100} more items. Type to search.`;
+    g.appendChild(d);
+  }
+}
+function rItems(list){
+  const tb=document.getElementById('inv-body');
+  if(!tb)return;
+  if(!list.length){tb.innerHTML='<tr><td colspan="16" style="text-align:center;color:var(--dim)">No items found.</td></tr>';return;}
+  // Prevent O(N^2) concatenation and DOM bloat
+  const toRender = list.slice(0, 150);
+  tb.innerHTML = toRender.map(m=>{
+    const st=m.s<=0?'<span class="bx br">Out</span>':(m.s<15?'<span class="bx br" style="background:#f59e0b">Low</span>':'<span class="bx bg">OK</span>');
+    return `<tr><td style="position:sticky;left:0;background:var(--card);border-right:1px solid var(--brd);font-weight:600">${m.n}</td><td>${shelfLabel(m)}</td><td>${m.batch||'—'}</td><td>${m.expiry||'—'}</td><td>₹${m.p_rate}</td><td>${m.p_packing||'—'}</td><td>₹${m.p}</td><td>${m.s_packing||'—'}</td><td>${m.s}</td><td>${m.p_gst}%</td><td>${m.s_gst}%</td><td>${m.disc}%</td><td>${m.offer||'None'}</td><td>${m.reorder}</td><td>${m.max_qty}</td><td style="text-align:right"><button class="btn btn-out" style="padding:4px 8px" onclick="editMed('${m.id}')"><i class="fas fa-pen"></i></button></td></tr>`;
+  }).join('');
+  if(list.length > 150){
+     tb.innerHTML += `<tr><td colspan="16" style="text-align:center;color:var(--dim);padding:15px">Showing 150 of ${list.length} items. Use the search bar to find more.</td></tr>`;
+  }
+}
 function rPurchases(){fetch(API+'/purchases?t='+Date.now()).then(r=>r.json()).then(ps=>{const tb=document.getElementById('pur-body');if(!tb)return;if(!ps.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--dim)">No purchase orders recorded.</td></tr>';return;}tb.innerHTML='';ps.sort((a,b)=>b.id.localeCompare(a.id)).forEach(p=>{const st=p.status==='Received'?'bg':(p.status==='Cancelled'?'br':'bo');const prf=p.photo?`<i class="fas fa-camera-retro" style="margin-left:6px;opacity:0.6;cursor:pointer" onclick="v_sh('${p.id}')"></i>`:'';tb.innerHTML+=`<tr><td><span class="bx bo">#${p.id}</span></td><td>${p.supplier}</td><td>${p.items}</td><td>₹${p.amount}</td><td>${p.date}</td><td><span class="bx ${st}" onclick="upSt('${p.id}')" style="cursor:pointer">${p.status}</span>${prf}</td></tr>`;});});}
 function v_sh(id){fetch(API+'/purchases').then(r=>r.json()).then(ps=>{const p=ps.find(x=>x.id==id);if(!p||!p.photo)return;const w=window.open('','_blank','width=450,height=550');w.document.write(`<html><body style="background:#0f172a;color:#fff;font-family:sans-serif;padding:20px;text-align:center;"><h3>Order Verification Proof</h3><img src="${p.photo}" style="width:100%;border-radius:8px;border:1px solid #334155"/><div style="text-align:left;margin-top:15px;font-size:13px;"><p><b>ID:</b> #${p.id}</p><p><b>Supplier:</b> ${p.supplier}</p><p><b>Batch:</b> ${p.batch}</p><p><b>Expiry:</b> ${p.expiry}</p></div></body></html>`);});}
 function upSt(id){fetch(API+'/purchases').then(r=>r.json()).then(ps=>{const p=ps.find(x=>x.id==id);if(!p)return;const next={'Pending':'Received','Received':'Cancelled','Cancelled':'Pending'}[p.status]||'Pending';if(next==='Received'){v_open(p);return;}p.status=next;fetch(API+'/purchases',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)}).then(()=>rPurchases());});}
@@ -559,7 +634,10 @@ function v_close(){if(V_S){V_S.getTracks().forEach(t=>t.stop());V_S=null;}docume
 async function v_cam(){const v=document.getElementById('v-vid'),c=document.getElementById('v-can');v.style.display='block';c.style.display='none';try{const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});V_S=s;v.srcObject=s;}catch(err){alert('Camera access denied');}}
 function v_cap(){const v=document.getElementById('v-vid'),c=document.getElementById('v-can'),ctx=c.getContext('2d');const w=v.videoWidth,h=v.videoHeight;c.width=Math.min(400,w);c.height=c.width*(h/w);ctx.drawImage(v,0,0,c.width,c.height);v.style.display='none';c.style.display='block';document.getElementById('v-msg').textContent='Captured!';if(V_S){V_S.getTracks().forEach(t=>t.stop());V_S=null;}}
 function v_sv(){const b=document.getElementById('v-b').value.trim(),e=document.getElementById('v-e').value,c=document.getElementById('v-can');if(!b||!e){alert('Batch and Expiry are mandatory!');return;}if(c.style.display!=='block'){alert('Please capture a photo first!');return;}const btn=document.querySelector('#v-mod .btn-acc[onclick="v_sv()"]');const ot=btn.textContent;btn.disabled=true;btn.textContent='Saving...';const ph=c.toDataURL('image/jpeg',0.4);const p={...V_P,status:'Received',batch:b,expiry:e,photo:ph};fetch(API+'/purchases',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)}).then(r=>r.json()).then(()=>{rPurchases();v_close();alert('Verified and Received!');}).catch(err=>alert('Error: '+err.message)).finally(()=>{btn.disabled=false;btn.textContent=ot;});}
-function loadInventory(){fetch(API+'/medicines?t='+Date.now()).then(r=>{if(!r.ok)throw new Error('API Error');return r.json();}).then(data=>{MEDS=data;fm2();rItems(MEDS);rSys();rCategories(data);}).catch(err=>{console.error(err);});}
+function loadInventory(force=false){
+  const now=Date.now();
+  if(!force && MEDS.length>0 && (now-MEDS_LAST_LOADED)<MEDS_CACHE_TTL) return;
+  fetch(API+'/medicines?t='+now).then(r=>{if(!r.ok)throw new Error('API Error');return r.json();}).then(data=>{MEDS=data;MEDS_LAST_LOADED=Date.now();filteredMeds=data;fm2();rItems(MEDS);rSys();rCategories(data);}).catch(err=>{console.error(err);});}
 function rCategories(ms){const cs=['All Categories',...new Set(ms.map(m=>m.c))];const sel=document.getElementById('cat-filter');if(sel){const curr=sel.value;sel.innerHTML=cs.map(c=>`<option value="${c==='All Categories'?'':c}" ${c===curr?'selected':''}>${c}</option>`).join('');}}
 
 let filteredMeds=[];
@@ -983,7 +1061,25 @@ function dm(id){if(!confirm('Permanently delete this medicine?'))return;fetch(AP
 function us(id){const i=MEDS.find(x=>x.id==id);if(!i)return;let nv=prompt(`Update stock for ${i.n}:`,i.s);if(nv!==null){nv=parseInt(nv);if(!isNaN(nv)){fetch(API+'/medicines',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...i,s:nv})}).then(()=>loadInventory());}}}
 
 let allBills=[];
-function renderUtils(){const tbody=document.getElementById('util-bills-body');if(!tbody)return;if(!allBills.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--dim)">No bills generated yet.</td></tr>';return;}tbody.innerHTML='';allBills.slice().reverse().forEach((b)=>{const itemsTxt=(b.items&&b.items.length)?b.items.map(i=>i.n).join(', '):'—';const rxf=b.prescription?`<button class="btn btn-out" style="padding:4px 10px;font-size:10px;border-color:var(--acc);color:var(--acc);background:rgba(245,166,35,0.05)" onclick="v_rx('${b.id}')"><i class="fas fa-eye"></i> View Prescription</button>`:'<span style="color:var(--dim);font-size:11px;opacity:0.5">—</span>';tbody.innerHTML+=`<tr>
+function loadBills(reset = false, callback = null){
+  if(reset){ BILLS_OFFSET = 0; allBills = []; }
+  fetch(API+'/bills?limit='+BILLS_PAGE_SIZE+'&offset='+BILLS_OFFSET).then(r=>r.json()).then(res=>{
+    const dataArray = res.items || res.bills || [];
+    allBills = reset ? dataArray : allBills.concat(dataArray);
+    BILLS_TOTAL = res.total;
+    renderUtils();
+    if(callback) callback();
+  });
+}
+function renderUtils(){
+  const tbody=document.getElementById('util-bills-body');
+  if(!tbody)return;
+  if(!allBills.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--dim)">No bills generated yet.</td></tr>';return;}
+  tbody.innerHTML='';
+  allBills.forEach((b)=>{
+    const itemsTxt=(b.items&&b.items.length)?b.items.map(i=>i.n).join(', '):'—';
+    const rxf=b.prescription?`<button class="btn btn-out" style="padding:4px 10px;font-size:10px;border-color:var(--acc);color:var(--acc);background:rgba(245,166,35,0.05)" onclick="v_rx('${b.id}')"><i class="fas fa-eye"></i> View Prescription</button>`:'<span style="color:var(--dim);font-size:11px;opacity:0.5">—</span>';
+    tbody.innerHTML+=`<tr>
 <td style="vertical-align:middle"><span class="bx bo">#${b.id}</span></td>
 <td style="vertical-align:middle;font-size:12px">${b.date}</td>
 <td style="vertical-align:middle;font-weight:500">${b.cust}</td>
@@ -992,37 +1088,32 @@ function renderUtils(){const tbody=document.getElementById('util-bills-body');if
 <td style="vertical-align:middle"><span style="text-transform:uppercase;font-size:10px;background:var(--brd);padding:2px 6px;border-radius:4px">${b.pay}</span></td>
 <td style="vertical-align:middle;color:var(--mt);font-size:11.5px">${b.doctor||'Self'}</td>
 <td style="vertical-align:middle;color:var(--mt);font-size:11.5px;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${itemsTxt}">${itemsTxt}</td>
-</tr>`;});}
+</tr>`;
+  });
+  if(BILLS_OFFSET + BILLS_PAGE_SIZE < BILLS_TOTAL) {
+    tbody.innerHTML += `<tr><td colspan="8" style="text-align:center;padding:15px"><button class="btn btn-out" onclick="BILLS_OFFSET+=${BILLS_PAGE_SIZE};loadBills()">Load More...</button></td></tr>`;
+  }
+}
 function v_rx(id){const b=allBills.find(x=>x.id==id);if(!b||!b.prescription)return;const isPdf=b.prescription.startsWith('data:application/pdf');const w=window.open('','_blank','width=1000,height=920');const content=isPdf?`<iframe src="${b.prescription}" style="width:95%;height:82vh;border-radius:12px;border:1px solid #334155;background:#1e293b;box-shadow:0 20px 50px rgba(0,0,0,0.5)"></iframe>`:`<video style="display:none"></video><img src="${b.prescription}" style="max-width:90%;max-height:80%;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,0.5);border:1px solid #334155;"/><p style="margin-top:24px;font-size:14px;color:#94a3b8;letter-spacing:0.5px">Customer: <b style="color:#f1f5f9">${b.cust}</b></p>`;w.document.write(`<html><head><title>Prescription: ${b.cust}</title><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet"/><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/><style>body{margin:0;background:#0f172a;color:#fff;font-family:'Inter',sans-serif;display:flex;flex-direction:column;align-items:center;height:100vh;overflow:hidden}.hdr{width:100%;padding:20px;background:#1e293b;border-bottom:1px solid #334155;display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:30px}.hdr i{color:#f5a623;font-size:20px}.hdr h2{margin:0;font-size:18px;font-weight:600;letter-spacing:-0.5px}</style></head><body><div class="hdr"><i class="fas fa-file-prescription"></i><h2>Prescription for Bill #${b.id}</h2></div>${content}</body></html>`);}
 function rKpis(sD){
-  fetch(API+'/bills?t='+Date.now()).then(r=>r.json()).then(bls=>{
-    allBills=bls;let tr=0,ytr=0,tb=0,ytb=0;
-    const d=sD?new Date(sD):new Date();
-    const ds=pd(d.getDate())+'/'+pd(d.getMonth()+1)+'/'+d.getFullYear();
-    const yd=new Date(d); yd.setDate(d.getDate()-1);
-    const yds=pd(yd.getDate())+'/'+pd(yd.getMonth()+1)+'/'+yd.getFullYear();
-    
-    bls.forEach(b=>{
-      if(b.date.startsWith(ds)){tr+=b.total;tb++;}
-      else if(b.date.startsWith(yds)){ytr+=b.total;ytb++;}
-    });
-
+  const d=sD?new Date(sD):new Date();
+  const ds=pd(d.getDate())+'/'+pd(d.getMonth()+1)+'/'+d.getFullYear();
+  
+  fetch(API+'/kpis?date='+encodeURIComponent(ds)+'&t='+Date.now()).then(r=>r.json()).then(k=>{
     const isT = ds === (pd(new Date().getDate())+'/'+pd(new Date().getMonth()+1)+'/'+new Date().getFullYear());
     document.getElementById('kl-tb').textContent = isT ? 'Today Bills' : 'Bills on '+ds;
     document.getElementById('kl-tr').textContent = isT ? 'Today Revenue' : 'Revenue on '+ds;
     
-    document.getElementById('kpi-tb').textContent=tb;
-    document.getElementById('kpi-tr').textContent='₹'+tr.toLocaleString('en-IN');
+    document.getElementById('kpi-tb').textContent=k.today_bills;
+    document.getElementById('kpi-tr').textContent='₹'+k.today_revenue.toLocaleString('en-IN');
     if(document.getElementById('kpi-au'))document.getElementById('kpi-au').textContent=(APP_USERS&&APP_USERS.length)||1;
-    const b_diff=tb-ytb;
+    const b_diff=k.today_bills-k.yesterday_bills;
     document.getElementById('ks-tb').textContent=(b_diff>=0?'+':'')+b_diff+' vs prev day';
-    const r_pct=ytr===0?0:(tr-ytr)/ytr*100;
+    const r_pct=k.yesterday_revenue===0?0:(k.today_revenue-k.yesterday_revenue)/k.yesterday_revenue*100;
     document.getElementById('ks-tr').textContent=(r_pct>=0?'+':'')+r_pct.toFixed(0)+'% vs prev day';
-    document.querySelector('.rbn').textContent='#B-'+(bls.length+heldBills.length+1);
-    renderUtils();
-    rMasters();
+    document.querySelector('.rbn').textContent='#B-'+(k.total_bills+heldBills.length+1);
+    
     rSys(sD);
-    if(typeof generateWantedList==='function')generateWantedList();
     if(!sD){
       const todayIso = d.toISOString().split('T')[0];
       document.getElementById('sys-date').value = todayIso;
@@ -1167,7 +1258,8 @@ function pb2(){
   .then(()=>{
     // ALL UI refreshes happen AFTER server confirms save
     rKpis();
-    loadInventory();
+    loadBills(true);
+    loadInventory(true);
     rMasters();
     rxBase64='';
     const btn=document.getElementById('btn-rx'), prev=document.getElementById('rx-preview');
@@ -1504,9 +1596,13 @@ window.onload = () => {
     if(c) document.getElementById('cn').value=c.name;
   });
 
-  // Refresh heartbeat
+  // Smart Polling (replaces 5s global heartbeat)
   setInterval(() => {
-    if(typeof rKpis === 'function') rKpis();
-    if(typeof loadInventory === 'function') loadInventory();
-  }, 5000);
+    const activePanel = document.querySelector('.pn.on')?.id;
+    if (activePanel === 'p-system' && typeof rKpis === 'function') rKpis();
+  }, 30000); // 30s for KPIs
+  setInterval(() => {
+    const activePanel = document.querySelector('.pn.on')?.id;
+    if (activePanel === 'p-item' && typeof loadInventory === 'function') loadInventory();
+  }, 60000); // 60s for inventory
 };

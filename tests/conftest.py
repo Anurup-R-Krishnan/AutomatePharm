@@ -1,4 +1,8 @@
 import os
+import sys
+
+# Ensure the project root is on the Python path so that imports like `backend` work when running tests
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import pytest
 

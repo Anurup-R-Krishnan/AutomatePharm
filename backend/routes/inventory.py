@@ -161,8 +161,23 @@ def _get_or_create_defaults():
 
 @inventory_bp.route("/api/medicines", methods=["GET"])
 def get_meds():
-    items = Item.query.order_by(Item.item_name).all()
-    return jsonify([_item_to_compat(i) for i in items])
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
+    search = request.args.get('search', '', type=str)
+
+    query = Item.query
+
+    if search:
+        query = query.filter(Item.item_name.ilike(f'%{search}%'))
+
+    paginated = query.order_by(Item.item_name).paginate(page=page, per_page=per_page, error_out=False)
+
+    return jsonify({
+        "items": [_item_to_compat(i) for i in paginated.items],
+        "total": paginated.total,
+        "pages": paginated.pages,
+        "current_page": paginated.page
+    })
 
 
 @inventory_bp.route("/api/medicines/alerts", methods=["GET"])

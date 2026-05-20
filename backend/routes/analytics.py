@@ -15,7 +15,6 @@ from ..analytics_logic import (
 analytics_bp = Blueprint("analytics", __name__)
 
 @analytics_bp.route("/api/analytics/summary", methods=["GET"])
-@role_required("admin", "manager")
 def analytics_summary():
     try:
         # Get various insights
@@ -41,7 +40,6 @@ def analytics_summary():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @analytics_bp.route("/api/analytics/forecast", methods=["GET"])
-@role_required("admin", "manager")
 def sales_forecast():
     try:
         data = get_sales_forecast(days_back=60, forecast_days=14)
@@ -50,7 +48,6 @@ def sales_forecast():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @analytics_bp.route("/api/analytics/refill-reminders", methods=["GET"])
-@role_required("admin", "manager", "staff")
 def refill_reminders():
     try:
         days = int(request.args.get("days", 5))
@@ -60,7 +57,6 @@ def refill_reminders():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @analytics_bp.route("/api/analytics/staff-summary", methods=["GET"])
-@role_required("admin", "manager")
 def staff_summary():
     try:
         data = get_staff_performance_summary()
@@ -69,7 +65,6 @@ def staff_summary():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @analytics_bp.route("/api/analytics/staff/<int:staff_id>", methods=["GET"])
-@role_required("admin", "manager")
 def staff_details(staff_id):
     try:
         data = get_staff_detailed_performance(staff_id)

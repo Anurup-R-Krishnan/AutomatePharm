@@ -89,7 +89,8 @@ def _get_or_create_defaults():
 def _bill_to_compat(bill: SalesBill) -> dict:
     bill_items = []
     for bi in bill.items:
-        item = Item.query.get(bi.item_id)
+        # Use the eagerly loaded relationship instead of querying
+        item = bi.item
         bill_items.append({
             "id":    bi.item_id,
             "n":     item.item_name if item else bi.item_id,
@@ -98,9 +99,10 @@ def _bill_to_compat(bill: SalesBill) -> dict:
             "s":     bi.qty_sold,
         })
 
-    customer = Customer.query.get(bill.customer_id) if bill.customer_id else None
-    doctor   = Doctor.query.get(bill.doctor_id)     if bill.doctor_id   else None
-    bt       = BillType.query.get(bill.bill_type_id)
+    # Use the eagerly loaded relationships directly
+    customer = bill.customer
+    doctor   = bill.doctor
+    bt       = bill.bill_type
 
     legacy_id = f"B-{bill.bill_id}"
 
@@ -461,14 +463,51 @@ def cancel_bill_with_reason(bill_id):
 
 
 
+@bills_bp.route("/api/bills/kpis", methods=["GET"])
+def get_bills_kpis():
+    from datetime import date, timedelta
+    from sqlalchemy import func
+    
+    today = date.today()
+    yesterday = today - timedelta(days=1)
+    
+    today_stats = db.session.query(
+        func.count(SalesBill.bill_id),
+        func.sum(SalesBill.net_amount)
+    ).filter(SalesBill.bill_date == today, SalesBill.is_cancelled == False).first()
+    
+    yesterday_stats = db.session.query(
+        func.count(SalesBill.bill_id),
+        func.sum(SalesBill.net_amount)
+    ).filter(SalesBill.bill_date == yesterday, SalesBill.is_cancelled == False).first()
+    
+    total_bills = db.session.query(func.count(SalesBill.bill_id)).filter_by(is_cancelled=False).scalar()
+    
+    return jsonify({
+        "today_bills": today_stats[0] or 0,
+        "today_revenue": float(today_stats[1] or 0.0),
+        "yesterday_bills": yesterday_stats[0] or 0,
+        "yesterday_revenue": float(yesterday_stats[1] or 0.0),
+        "total_bills": total_bills or 0
+    })
+
 @bills_bp.route("/api/bills", methods=["GET"])
 def get_bills():
+    page     = request.args.get("page", 1, type=int)
+    limit    = request.args.get("limit", 50, type=int)
     start_ts = request.args.get("start_date")
     end_ts   = request.args.get("end_date")
     customer = request.args.get("customer", "").lower()
     doctor   = request.args.get("doctor", "").lower()
 
-    query = SalesBill.query.filter_by(is_cancelled=False)
+    # Eager load the required relationships to avoid N+1 queries
+    query = SalesBill.query.options(
+        db.joinedload(SalesBill.customer),
+        db.joinedload(SalesBill.doctor),
+        db.joinedload(SalesBill.salesman),
+        db.joinedload(SalesBill.bill_type),
+        db.joinedload(SalesBill.items).joinedload(SalesBillItem.item)
+    ).filter_by(is_cancelled=False)
 
     if start_ts:
         dt = datetime.fromtimestamp(int(start_ts) / 1000)
@@ -489,8 +528,16 @@ def get_bills():
         ids = [d.doctor_id for d in matched]
         query = query.filter(SalesBill.doctor_id.in_(ids))
 
-    bills = query.order_by(SalesBill.bill_id.desc()).all()
-    return jsonify([_bill_to_compat(b) for b in bills])
+    # Perform pagination instead of returning all rows
+    paginated = query.order_by(SalesBill.bill_id.desc()).paginate(page=page, per_page=limit, error_out=False)
+    
+    return jsonify({
+        "items": [_bill_to_compat(b) for b in paginated.items],
+        "total": paginated.total,
+        "pages": paginated.pages,
+        "current_page": page,
+        "limit": limit
+    })
 
 
 

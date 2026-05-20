@@ -15,8 +15,10 @@ def get_json(response):
 
 
 def find_item(items, key: str, value):
+    if isinstance(items, dict) and "items" in items:
+        items = items["items"]
     for item in items:
-        if item.get(key) == value:
+        if isinstance(item, dict) and item.get(key) == value:
             return item
     return None
 
@@ -332,9 +334,11 @@ def test_inventory_smoke(client):
     assert shelf_create.status_code == 200
     assert get_json(shelf_create)["status"] == "success"
 
-    medicines_before = client.get("/api/medicines")
+    medicines_before = client.get("/api/medicines?per_page=10000")
     assert medicines_before.status_code == 200
-    assert isinstance(get_json(medicines_before), list)
+    med_data = get_json(medicines_before)
+    med_list = med_data.get("items", med_data) if isinstance(med_data, dict) else med_data
+    assert isinstance(med_list, list)
 
     medicine_create = client.post(
         "/api/medicines",
@@ -362,7 +366,7 @@ def test_inventory_smoke(client):
     assert medicine_create.status_code == 200
     assert get_json(medicine_create)["status"] == "success"
 
-    medicines_after = client.get("/api/medicines")
+    medicines_after = client.get("/api/medicines?per_page=10000")
     assert medicines_after.status_code == 200
     medicine_list = get_json(medicines_after)
     created_medicine = find_item(medicine_list, "id", medicine_id)
@@ -417,7 +421,7 @@ def test_inventory_adjustment(client):
     assert medicine_create.status_code == 200
 
     # Verify that 'batches' is present in the medicine list
-    medicines = client.get("/api/medicines")
+    medicines = client.get("/api/medicines?per_page=10000")
     assert medicines.status_code == 200
     medicine_list = get_json(medicines)
     med = find_item(medicine_list, "id", medicine_id)
@@ -444,7 +448,7 @@ def test_inventory_adjustment(client):
     assert adjust_body["new_qty"] == 95
 
     # Verify stock in medicine list
-    medicines_after = client.get("/api/medicines")
+    medicines_after = client.get("/api/medicines?per_page=10000")
     med_after = find_item(get_json(medicines_after), "id", medicine_id)
     assert med_after["s"] == 95
     assert med_after["batches"][0]["qty"] == 95
