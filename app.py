@@ -1,7 +1,7 @@
 import json
 import os
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from flask import Flask, jsonify, request, send_file, render_template
@@ -212,6 +212,12 @@ def init_db() -> None:
                 initial_meds,
             )
 
+        # ── Performance indexes ──────────────────────────────────────────
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_bills_ts ON bills(ts)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_bills_date ON bills(date)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_medicines_n ON medicines(n)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name)")
+
     migrate_db()
 
 
@@ -343,6 +349,50 @@ def api_health():
     )
 
 
+@app.route("/api/kpis", methods=["GET"])
+def get_kpis():
+    """Lightweight KPI summary — no need to fetch all bills for dashboard cards."""
+    date_str = request.args.get("date", "")
+    try:
+        d = datetime.strptime(date_str, "%d/%m/%Y") if date_str else datetime.now()
+    except ValueError:
+        d = datetime.now()
+
+    ds = f"{d.day:02d}/{d.month:02d}/{d.year}"
+    yd = d - timedelta(days=1)
+    yds = f"{yd.day:02d}/{yd.month:02d}/{yd.year}"
+    cutoff_90 = (datetime.now() + timedelta(days=90)).strftime("%Y-%m-%d")
+    today_iso = datetime.now().strftime("%Y-%m-%d")
+
+    with get_conn() as conn:
+        today = conn.execute(
+            "SELECT SUM(total) AS t, COUNT(*) AS c FROM bills WHERE date LIKE ?",
+            (f"{ds}%",),
+        ).fetchone()
+        yesterday = conn.execute(
+            "SELECT SUM(total) AS t, COUNT(*) AS c FROM bills WHERE date LIKE ?",
+            (f"{yds}%",),
+        ).fetchone()
+        total_bills = conn.execute("SELECT COUNT(*) AS c FROM bills").fetchone()["c"]
+        low_stock = conn.execute(
+            "SELECT COUNT(*) AS c FROM medicines WHERE s < 15"
+        ).fetchone()["c"]
+        expiry_alerts = conn.execute(
+            "SELECT COUNT(*) AS c FROM medicines WHERE expiry != '' AND expiry <= ? AND expiry >= ?",
+            (cutoff_90, today_iso),
+        ).fetchone()["c"]
+
+    return jsonify({
+        "today_bills": today["c"] or 0,
+        "today_revenue": float(today["t"] or 0),
+        "yesterday_bills": yesterday["c"] or 0,
+        "yesterday_revenue": float(yesterday["t"] or 0),
+        "total_bills": total_bills,
+        "low_stock_count": low_stock,
+        "expiry_alert_count": expiry_alerts,
+    })
+
+
 @app.route("/api/backup")
 def backup_db():
     """Download database backup"""
@@ -352,8 +402,22 @@ def backup_db():
 # --- BILLS ---
 @app.route("/api/bills", methods=["GET"])
 def get_bills():
-    """Get all bills"""
+    """Get bills with optional pagination. Without ?limit returns all (backward compat)."""
+    limit = request.args.get("limit", type=int)
+    offset = request.args.get("offset", 0, type=int)
     with get_conn() as conn:
+        if limit is not None:
+            rows = conn.execute(
+                "SELECT * FROM bills ORDER BY ts DESC LIMIT ? OFFSET ?",
+                (limit, offset),
+            ).fetchall()
+            total = conn.execute("SELECT COUNT(*) AS c FROM bills").fetchone()["c"]
+            return jsonify({
+                "bills": [normalize_bill_row(r) for r in rows],
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+            })
         rows = conn.execute("SELECT * FROM bills ORDER BY ts DESC").fetchall()
     return jsonify([normalize_bill_row(row) for row in rows])
 
@@ -483,28 +547,33 @@ def save_bill():
 # --- MEDICINES (INVENTORY) ---
 @app.route("/api/medicines", methods=["GET"])
 def get_meds():
-    """Get all medicines"""
-    with get_conn() as conn:
-        rows = conn.execute("SELECT * FROM medicines").fetchall()
+    """Get medicines. Supports ?q= search and ?limit/?offset pagination."""
+    q = request.args.get("q", "").strip()
+    limit = request.args.get("limit", type=int)
+    offset = request.args.get("offset", 0, type=int)
     keys = [
-        "id",
-        "n",
-        "g",
-        "c",
-        "p",
-        "s",
-        "batch",
-        "expiry",
-        "p_rate",
-        "p_packing",
-        "s_packing",
-        "p_gst",
-        "s_gst",
-        "disc",
-        "offer",
-        "reorder",
-        "max_qty",
+        "id", "n", "g", "c", "p", "s", "batch", "expiry",
+        "p_rate", "p_packing", "s_packing", "p_gst", "s_gst",
+        "disc", "offer", "reorder", "max_qty",
     ]
+    with get_conn() as conn:
+        if q and limit is not None:
+            rows = conn.execute(
+                "SELECT * FROM medicines WHERE n LIKE ? OR g LIKE ? LIMIT ? OFFSET ?",
+                (f"%{q}%", f"%{q}%", limit, offset),
+            ).fetchall()
+        elif q:
+            rows = conn.execute(
+                "SELECT * FROM medicines WHERE n LIKE ? OR g LIKE ?",
+                (f"%{q}%", f"%{q}%"),
+            ).fetchall()
+        elif limit is not None:
+            rows = conn.execute(
+                "SELECT * FROM medicines LIMIT ? OFFSET ?",
+                (limit, offset),
+            ).fetchall()
+        else:
+            rows = conn.execute("SELECT * FROM medicines").fetchall()
     return jsonify([dict(zip(keys, tuple(row))) for row in rows])
 
 
@@ -867,10 +936,6 @@ def delete_doctor(id):
     with get_conn() as conn:
         conn.execute("DELETE FROM doctors WHERE id = ?", (id,))
     return jsonify({"status": "success"})
-
-@app.route('/mfrchange2')
-def mfr_change_detail_page():
-    return render_template('mfrchange2.html')
 
 
 # Initialize database

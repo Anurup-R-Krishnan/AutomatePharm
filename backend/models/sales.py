@@ -45,7 +45,11 @@ class SalesBill(db.Model):
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    items = db.relationship('SalesBillItem', back_populates='bill', lazy='dynamic')
+    items = db.relationship('SalesBillItem', back_populates='bill') # Removed lazy='dynamic' for joinedload
+    customer = db.relationship('Customer', foreign_keys=[customer_id], lazy='joined')
+    doctor = db.relationship('Doctor', foreign_keys=[doctor_id], lazy='joined')
+    salesman = db.relationship('Salesman', foreign_keys=[salesman_id], lazy='joined')
+    bill_type = db.relationship('BillType', foreign_keys=[bill_type_id], lazy='joined')
 
     __table_args__ = (
         db.UniqueConstraint('bill_no', 'financial_year_id', name='bill_no_fy_unique'),
@@ -92,6 +96,7 @@ class SalesBillItem(db.Model):
 
     # Relationships
     bill = db.relationship('SalesBill', back_populates='items')
+    item = db.relationship('Item', foreign_keys=[item_id], lazy='joined')
 
     __table_args__ = (
         db.CheckConstraint('qty_sold > 0', name='qty_sold_positive'),
