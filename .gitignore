@@ -39,3 +39,9 @@ instance/
 dist/
 build/
 *.egg-info/
+
+
+*.xls
+face_debug.txt
+flake8_output.txt
+routes.txt
