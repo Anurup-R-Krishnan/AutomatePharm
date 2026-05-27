@@ -49,3 +49,7 @@ routes.txt
 # Node / Bun (knip dev tooling)
 node_modules/
 frontend/node_modules/
+
+# Prototypes & Scratch
+SELVAM_MEDICALS fc/
+scratch/
