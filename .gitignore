@@ -45,3 +45,7 @@ build/
 face_debug.txt
 flake8_output.txt
 routes.txt
+
+# Node / Bun (knip dev tooling)
+node_modules/
+frontend/node_modules/
