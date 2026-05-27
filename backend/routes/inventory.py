@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 
 from flask import Blueprint, jsonify, request
 from sqlalchemy import func, or_
@@ -37,19 +37,19 @@ def _item_to_compat(item: Item) -> dict:
     )
 
     # related lookup names
-    category = ProductCategory.query.get(item.category_id)
-    combination = Combination.query.get(item.combination_id) if item.combination_id else None
-    p_gst_slab = GstSlab.query.get(item.purchase_gst_slab_id)
-    s_gst_slab = GstSlab.query.get(item.sales_gst_slab_id)
+    category = db.session.get(ProductCategory, item.category_id)
+    combination = db.session.get(Combination, item.combination_id) if item.combination_id else None
+    p_gst_slab = db.session.get(GstSlab, item.purchase_gst_slab_id)
+    s_gst_slab = db.session.get(GstSlab, item.sales_gst_slab_id)
     shelf_loc = None
     if item.rack_number:
         rack_key = str(item.rack_number).strip()
         if rack_key.isdigit():
-            shelf_loc = Location.query.get(int(rack_key))
+            shelf_loc = db.session.get(Location, int(rack_key))
         if not shelf_loc:
             shelf_loc = Location.query.filter_by(location_code=rack_key).first()
         if not shelf_loc and rack_key.isdigit():
-            shelf_loc = Location.query.get(int(item.rack_number))
+            shelf_loc = db.session.get(Location, int(item.rack_number))
 
     offer_str = (
         f"Buy {item.offer_buy_qty} Get {item.offer_free_qty} Free"
@@ -247,7 +247,7 @@ def update_med():
             item_id = "I-" + uuid.uuid4().hex[:8]
         elif len(item_id) > 10:
             item_id = item_id[:10]
-        item = Item.query.get(item_id)
+        item = db.session.get(Item, item_id)
 
         if not item:
             item = Item(
@@ -276,7 +276,7 @@ def update_med():
         shelf_location = None
         if selected_shelf_id:
             if selected_shelf_id.isdigit():
-                shelf_location = Location.query.get(int(selected_shelf_id))
+                shelf_location = db.session.get(Location, int(selected_shelf_id))
             if not shelf_location:
                 shelf_location = Location.query.filter_by(location_code=selected_shelf_id).first()
             if not shelf_location:
@@ -359,7 +359,7 @@ def update_med():
 @inventory_bp.route("/api/medicines/<id>", methods=["DELETE"])
 def delete_med(id):
     try:
-        item = Item.query.get(id)
+        item = db.session.get(Item, id)
         if item:
             # 1. Delete associated stock data
             StockBatch.query.filter_by(item_id=id).delete()
@@ -409,7 +409,7 @@ def save_shelf():
     try:
         loc_id = data.get("id")
         if loc_id:
-            loc = Location.query.get(loc_id)
+            loc = db.session.get(Location, loc_id)
             if loc:
                 previous_code = loc.location_code
                 loc.location_name = name
@@ -421,7 +421,7 @@ def save_shelf():
             # ensure unique code
             existing = Location.query.filter_by(location_code=code).first()
             if existing:
-                code = code[:8] + "_" + str(int(datetime.utcnow().timestamp()))[-2:]
+                code = code[:8] + "_" + str(int(datetime.now(timezone.utc).timestamp()))[-2:]
             loc = Location(
                 location_name=name,
                 location_code=code,
@@ -442,7 +442,7 @@ def save_shelf():
 @inventory_bp.route("/api/shelves/<int:id>", methods=["DELETE"])
 def delete_shelf(id):
     try:
-        loc = Location.query.get(id)
+        loc = db.session.get(Location, id)
         if loc:
             # unassign items using this location
             Item.query.filter(
@@ -487,7 +487,7 @@ def adjust_stock():
         return _json_error("Batch ID and non-zero quantity required")
 
     try:
-        batch = StockBatch.query.get(batch_id)
+        batch = db.session.get(StockBatch, batch_id)
         if not batch:
             return _json_error("Stock batch not found")
 

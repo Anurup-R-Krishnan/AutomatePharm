@@ -181,7 +181,7 @@ def create_expense():
 
 @finance_bp.route("/api/finance/expenses/<int:expense_id>", methods=["DELETE"])
 def delete_expense(expense_id: int):
-    expense = Expense.query.get(expense_id)
+    expense = db.session.get(Expense, expense_id)
     if not expense:
         return _json_error("Expense not found", 404, {"id": expense_id})
     try:
@@ -447,7 +447,7 @@ def record_supplier_payment():
     if amount <= 0:
         return _json_error("Amount must be greater than zero", 400)
 
-    supplier = Supplier.query.get(supplier_id)
+    supplier = db.session.get(Supplier, supplier_id)
     if not supplier:
         return _json_error("Supplier not found", 404, {"supplier_id": supplier_id})
 

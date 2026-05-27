@@ -1,6 +1,6 @@
 """Domain G — System / Audit: audit_log, sms_log, system_settings."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.dialects.postgresql import UUID
 from ..extensions import db
 
@@ -17,7 +17,7 @@ class AuditLog(db.Model):
     new_value = db.Column(db.JSON)
     ip_address = db.Column(db.String(45))
     machine_code = db.Column(db.String(20))
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
         db.CheckConstraint("action IN ('INSERT','UPDATE','DELETE')", name='audit_action_check'),
@@ -33,5 +33,5 @@ class SystemSetting(db.Model):
     setting_key = db.Column(db.String(100), primary_key=True)
     setting_value = db.Column(db.Text, nullable=False)
     description = db.Column(db.String(200))
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_by = db.Column(UUID(as_uuid=True), db.ForeignKey('users.user_id'))

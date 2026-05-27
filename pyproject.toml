@@ -25,3 +25,16 @@ DEP001 = ["sqlalchemy", "alembic", "werkzeug", "dotenv"]
 #   pytest         → test runner only, not imported in source code
 DEP002 = ["python-dotenv", "psycopg2-binary", "pgvector", "pytest"]
 
+[tool.vulture]
+exclude = [
+    "SELVAM_MEDICALS fc/",
+    "migrations/",
+    "scratch/",
+    "seed_*.py",
+    "debug_*.py",
+    ".venv/",
+    "venv/",
+    "backend/schemas/"
+]
+min_confidence = 80
+paths = ["backend/"]

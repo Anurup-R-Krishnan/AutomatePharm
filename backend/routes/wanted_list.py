@@ -41,7 +41,7 @@ def get_wanted_list():
     
     try:
         customer_id = int(customer_id)
-        customer = Customer.query.get(customer_id)
+        customer = db.session.get(Customer, customer_id)
         if not customer:
             return _json_error("Customer not found", 404)
         
@@ -54,7 +54,7 @@ def get_wanted_list():
         
         result = []
         for item in wanted_items:
-            medicine = Item.query.get(item.item_id)
+            medicine = db.session.get(Item, item.item_id)
             result.append({
                 "wanted_id": item.wanted_id,
                 "customer_id": item.customer_id,
@@ -101,11 +101,11 @@ def create_wanted_item():
         customer_id = int(data.get("customer_id"))
         item_id = str(data.get("item_id")).strip()
         
-        customer = Customer.query.get(customer_id)
+        customer = db.session.get(Customer, customer_id)
         if not customer:
             return _json_error("Customer not found", 404)
         
-        item = Item.query.get(item_id)
+        item = db.session.get(Item, item_id)
         if not item:
             return _json_error("Item not found", 404)
         
@@ -155,11 +155,11 @@ def create_wanted_item():
 def get_wanted_item(wanted_id):
     """Get a specific wanted item by ID"""
     try:
-        wanted = WantedList.query.get(wanted_id)
+        wanted = db.session.get(WantedList, wanted_id)
         if not wanted:
             return _json_error("Wanted item not found", 404)
         
-        item = Item.query.get(wanted.item_id)
+        item = db.session.get(Item, wanted.item_id)
         
         return jsonify({
             "wanted_id": wanted.wanted_id,
@@ -189,7 +189,7 @@ def update_wanted_item(wanted_id):
     data = request.get_json(silent=True) or {}
     
     try:
-        wanted = WantedList.query.get(wanted_id)
+        wanted = db.session.get(WantedList, wanted_id)
         if not wanted:
             return _json_error("Wanted item not found", 404)
         
@@ -217,7 +217,7 @@ def update_wanted_item(wanted_id):
         
         db.session.commit()
         
-        item = Item.query.get(wanted.item_id)
+        item = db.session.get(Item, wanted.item_id)
         
         return jsonify({
             "status": "success",
@@ -241,7 +241,7 @@ def update_wanted_item(wanted_id):
 def delete_wanted_item(wanted_id):
     """Delete a wanted item"""
     try:
-        wanted = WantedList.query.get(wanted_id)
+        wanted = db.session.get(WantedList, wanted_id)
         if not wanted:
             return _json_error("Wanted item not found", 404)
         
@@ -308,7 +308,7 @@ def bulk_update_status():
 def approve_wanted_item(wanted_id):
     """Approve a wanted item. Requires admin role."""
     try:
-        wanted = WantedList.query.get(wanted_id)
+        wanted = db.session.get(WantedList, wanted_id)
         if not wanted:
             return _json_error("Wanted item not found", 404)
 
@@ -318,7 +318,7 @@ def approve_wanted_item(wanted_id):
         wanted.auto_order_status = "APPROVED"
         db.session.commit()
 
-        item = Item.query.get(wanted.item_id)
+        item = db.session.get(Item, wanted.item_id)
         return jsonify({
             "status": "success",
             "wanted_id": wanted.wanted_id,
@@ -340,7 +340,7 @@ def mark_wanted_ordered(wanted_id):
     error_msg = data.get("error")
 
     try:
-        wanted = WantedList.query.get(wanted_id)
+        wanted = db.session.get(WantedList, wanted_id)
         if not wanted:
             return _json_error("Wanted item not found", 404)
 

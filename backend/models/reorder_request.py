@@ -4,7 +4,7 @@ Tracks outbound WhatsApp reorder requests sent to suppliers via n8n/Twilio,
 including the full supplier conversation lifecycle.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.dialects.postgresql import JSONB
 from ..extensions import db
 
@@ -39,14 +39,14 @@ class ReorderRequest(db.Model):
     # --- Lifecycle ---
     status = db.Column(db.String(30), nullable=False, default="PENDING")
 
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     sent_at = db.Column(db.DateTime, nullable=True)
     responded_at = db.Column(db.DateTime, nullable=True)
     updated_at = db.Column(
         db.DateTime,
         nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
     # --- n8n / Twilio conversation ---

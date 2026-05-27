@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.dialects.postgresql import UUID
 from ..extensions import db
 
@@ -41,8 +41,8 @@ class SalesBill(db.Model):
     remarks = db.Column(db.Text)
     payment_mode = db.Column(db.String(20), nullable=False, default='cash')
     prescription_base64 = db.Column(db.Text)  # Stores the Base64 image/PDF
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
     items = db.relationship('SalesBillItem', back_populates='bill') # Removed lazy='dynamic' for joinedload
@@ -92,7 +92,7 @@ class SalesBillItem(db.Model):
     profit_pct = db.Column(db.Numeric(6, 2), nullable=False)
     margin_flag = db.Column(db.Boolean, nullable=False, default=False)
     value = db.Column(db.Numeric(12, 2), nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     # Relationships
     bill = db.relationship('SalesBill', back_populates='items')
@@ -114,7 +114,7 @@ class ApprovalLog(db.Model):
     approved_by = db.Column(UUID(as_uuid=True), db.ForeignKey('users.user_id'), nullable=False)
     reason = db.Column(db.Text, nullable=False)
     requested_value = db.Column(db.Numeric(10, 2))
-    approved_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    approved_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
         db.CheckConstraint("override_type IN ('MARGIN','DISCOUNT','CANCEL')", name='override_type_check'),
@@ -137,7 +137,7 @@ class PrescriptionRegister(db.Model):
     expiry_date = db.Column(db.Date, nullable=False)
     dispenser_sign = db.Column(db.String(100))
     rx_date = db.Column(db.Date, nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
 
 class SalesReturn(db.Model):
@@ -158,8 +158,8 @@ class SalesReturn(db.Model):
     sgst_amount = db.Column(db.Numeric(12, 2), nullable=False, default=0.00)
     igst_amount = db.Column(db.Numeric(12, 2), nullable=False, default=0.00)
     net_return_amount = db.Column(db.Numeric(12, 2), nullable=False, default=0.00)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     return_items = db.relationship('SalesReturnItem', back_populates='sales_return', lazy='dynamic')
 
@@ -180,7 +180,7 @@ class SalesReturnItem(db.Model):
     return_rate = db.Column(db.Numeric(10, 2), nullable=False)
     gst_amount = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)
     return_value = db.Column(db.Numeric(12, 2), nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     sales_return = db.relationship('SalesReturn', back_populates='return_items')
 
@@ -203,8 +203,8 @@ class ReceiptPayment(db.Model):
     upi_ref = db.Column(db.String(50))
     user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.user_id'), nullable=False)
     remarks = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
         db.CheckConstraint('amount > 0', name='receipt_amount_positive'),
@@ -231,8 +231,8 @@ class BillingVoucher(db.Model):
     remarks = db.Column(db.Text)
     linked_bill_id = db.Column(db.Integer, db.ForeignKey('sales_bills.bill_id'))
     user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.user_id'), nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
         db.UniqueConstraint('voucher_type', 'voucher_no', name='billing_voucher_type_no_unique'),

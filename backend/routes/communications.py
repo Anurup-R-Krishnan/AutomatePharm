@@ -109,7 +109,7 @@ def update_template(id):
         return json_error("Missing required template fields", 400, missing)
     
     try:
-        setting = SystemSetting.query.get(_template_key(id))
+        setting = db.session.get(SystemSetting, _template_key(id))
         if not setting:
             return json_error("Template not found", 404)
         setting.setting_value = json.dumps(
@@ -128,7 +128,7 @@ def update_template(id):
 @communications_bp.route("/api/communications/templates/<int:id>", methods=["DELETE"])
 def delete_template(id):
     try:
-        setting = SystemSetting.query.get(_template_key(id))
+        setting = db.session.get(SystemSetting, _template_key(id))
         if setting:
             db.session.delete(setting)
             db.session.commit()

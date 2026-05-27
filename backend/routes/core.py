@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, render_template, session
 
@@ -30,7 +30,7 @@ def dashboard():
 def api_health():
     med_count = db.session.query(Item).count()
     bill_count = db.session.query(SalesBill).count()
-    now = datetime.utcnow().isoformat() + "Z"
+    now = datetime.now(timezone.utc).isoformat() + "Z"
     return jsonify(
         {
             "status": "ok",

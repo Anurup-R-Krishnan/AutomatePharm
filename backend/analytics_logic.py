@@ -1,8 +1,11 @@
-from datetime import datetime, timedelta, date as date_type
+from datetime import datetime, timedelta, date as date_type, timezone
 from sqlalchemy import func, desc, case
+import logging
 from .extensions import db
 from .models.sales import SalesBill, SalesBillItem
 from .models.core import Item, Customer
+
+logger = logging.getLogger(__name__)
 from .models.inventory import StockBatch
 from .models.ai import CustomerPurchasePattern
 
@@ -36,7 +39,7 @@ def get_sales_forecast(days_back=30, forecast_days=7):
     """
     Forecast sales for the next few days based on history.
     """
-    start_date = datetime.utcnow().date() - timedelta(days=days_back)
+    start_date = datetime.now(timezone.utc).date() - timedelta(days=days_back)
     
     # Get daily sales totals
     daily_sales = db.session.query(
@@ -89,7 +92,7 @@ def get_top_moving_items(limit=10, days_back=30):
     """
     Find items with the highest sales volume (Frequently Moving).
     """
-    start_date = datetime.utcnow().date() - timedelta(days=days_back)
+    start_date = datetime.now(timezone.utc).date() - timedelta(days=days_back)
     
     top_items = db.session.query(
         SalesBillItem.item_id,
@@ -140,7 +143,7 @@ def get_churn_risk_customers(days_threshold=60, min_total_spend=500):
     """
     Find customers who used to buy a lot but haven't visited in a while.
     """
-    threshold_date = datetime.utcnow().date() - timedelta(days=days_threshold)
+    threshold_date = datetime.now(timezone.utc).date() - timedelta(days=days_threshold)
     
     customer_stats = db.session.query(
         SalesBill.customer_id,
@@ -167,7 +170,7 @@ def get_churn_risk_customers(days_threshold=60, min_total_spend=500):
             "phone": phone,
             "last_visit": last_visit.isoformat(),
             "total_spend": float(total_spend),
-            "days_since_last_visit": (datetime.utcnow().date() - last_visit).days
+            "days_since_last_visit": (datetime.now(timezone.utc).date() - last_visit).days
         }
         for name, phone, last_visit, total_spend in churn_risk
     ]
@@ -177,7 +180,7 @@ def get_customer_lifetime_value(days_back=180):
     Cluster customers using RFM (Recency, Frequency, Monetary) parameters.
     Segments: Champions, Loyal Refillers, At-Risk.
     """
-    start_date = datetime.utcnow().date() - timedelta(days=days_back)
+    start_date = datetime.now(timezone.utc).date() - timedelta(days=days_back)
     
     # Query aggregated stats per customer
     stats = db.session.query(
@@ -200,7 +203,7 @@ def get_customer_lifetime_value(days_back=180):
         "promising": {"name": "Promising / Walk-ins", "count": 0, "total_spend": 0.0, "customers": [], "color": "#a78bfa", "desc": "Recent shoppers or lower frequency buyers"}
     }
     
-    today = datetime.utcnow().date()
+    today = datetime.now(timezone.utc).date()
     
     for cid, cname, phone, freq, mon, last_visit in stats:
         mon_val = float(mon or 0)
@@ -244,7 +247,7 @@ def get_dynamic_stockout_risk(days_back=30):
     """
     Calculate real-time daily consumption velocity per item to predict remaining days of supply.
     """
-    start_date = datetime.utcnow().date() - timedelta(days=days_back)
+    start_date = datetime.now(timezone.utc).date() - timedelta(days=days_back)
     
     # Calculate quantity sold per item over the period
     sales_velocity = db.session.query(
@@ -355,7 +358,7 @@ def update_customer_purchase_pattern(customer_id, item_id, quantity_purchased, i
         
         db.session.flush()
     except Exception as e:
-        print(f"Error updating purchase pattern: {e}")
+        logger.error("Error updating purchase pattern: %s", e)
 
 
 def get_personalized_suggestions(customer_id, limit=10, days_back=90, exclude_recent_days=30):
@@ -388,13 +391,13 @@ def get_personalized_suggestions(customer_id, limit=10, days_back=90, exclude_re
     ).group_by(SalesBillItem.item_id, Item.item_name).all()
     
     customer_item_ids = {item_id for item_id, _, _, _ in customer_items}
-    exclude_cutoff = datetime.utcnow().date() - timedelta(days=exclude_recent_days)
+    exclude_cutoff = datetime.now(timezone.utc).date() - timedelta(days=exclude_recent_days)
     recently_bought = {
         item_id for item_id, _, last_date, _ in customer_items
         if last_date and last_date > exclude_cutoff
     }
     
-    basket_start = datetime.utcnow().date() - timedelta(days=days_back)
+    basket_start = datetime.now(timezone.utc).date() - timedelta(days=days_back)
     related_items = set()
     
     if customer_item_ids:
@@ -492,7 +495,7 @@ def get_staff_performance_summary(days_back=30):
     Get high-level performance metrics for all active salesmen.
     """
     from .models.hr import Salesman
-    start_date = datetime.utcnow().date() - timedelta(days=days_back)
+    start_date = datetime.now(timezone.utc).date() - timedelta(days=days_back)
     
     staff_stats = db.session.query(
         Salesman.salesman_id,
@@ -528,7 +531,7 @@ def get_staff_detailed_performance(staff_id, days_back=30):
     if not staff:
         return None
         
-    start_date = datetime.utcnow().date() - timedelta(days=days_back)
+    start_date = datetime.now(timezone.utc).date() - timedelta(days=days_back)
     
     # 1. Sales Trend (Last 30 Days)
     trend_query = db.session.query(

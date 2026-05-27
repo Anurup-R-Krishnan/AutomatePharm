@@ -1,5 +1,5 @@
 """AI face detection event log model."""
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.dialects.postgresql import UUID
 from ..extensions import db
 
@@ -8,7 +8,7 @@ class AiFaceLog(db.Model):
     log_id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
     customer_id = db.Column(db.Integer, db.ForeignKey('customers.customer_id'), nullable=True)
     camera_id = db.Column(db.String(50), nullable=False, default='webcam')
-    detected_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    detected_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     confidence_score = db.Column(db.Float, nullable=True)
     action_triggered = db.Column(db.String(100), nullable=True)
     is_fraud_alert = db.Column(db.Boolean, nullable=False, default=False)
@@ -18,14 +18,14 @@ class PrescriptionOcrLog(db.Model):
 
     ocr_log_id = db.Column(db.BigInteger, primary_key=True)
     image_url = db.Column(db.Text, nullable=False)
-    processed_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    processed_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     raw_extracted_text = db.Column(db.JSON)
     parsed_medicines = db.Column(db.JSON)
     confidence_score = db.Column(db.Numeric(5, 2))
     requires_human_verification = db.Column(db.Boolean, nullable=False, default=True)
     verified_by = db.Column(UUID(as_uuid=True), db.ForeignKey('users.user_id'), nullable=True)
     verified_at = db.Column(db.DateTime)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
 
 class CustomerPurchasePattern(db.Model):
@@ -42,7 +42,7 @@ class CustomerPurchasePattern(db.Model):
     last_purchased_date = db.Column(db.Date, nullable=False)
     next_expected_date = db.Column(db.Date)
     is_chronic = db.Column(db.Boolean, nullable=False, default=False)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
         db.UniqueConstraint('customer_id', 'item_id', 'category_id', 'combination_id'),
@@ -55,7 +55,7 @@ class SeleniumOrderLog(db.Model):
     selenium_log_id = db.Column(db.BigInteger, primary_key=True)
     wanted_id = db.Column(db.Integer, db.ForeignKey('wanted_list.wanted_id'), nullable=False)
     supplier_id = db.Column(db.Integer, db.ForeignKey('suppliers.supplier_id'), nullable=False)
-    started_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    started_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     completed_at = db.Column(db.DateTime)
     status = db.Column(db.String(20), nullable=False, default='RUNNING')
     error_message = db.Column(db.Text)
@@ -91,8 +91,8 @@ class WantedList(db.Model):
     w_date = db.Column(db.Date, nullable=False)
     status_id = db.Column(db.Integer, db.ForeignKey('wanted_statuses.wanted_status_id'), nullable=False)
     reason = db.Column(db.Text) # Fraud/Alert reason
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
         db.CheckConstraint(

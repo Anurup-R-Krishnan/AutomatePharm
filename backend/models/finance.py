@@ -1,6 +1,6 @@
 """Domain E — GST / Finance: gst_transactions, expenses."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.dialects.postgresql import UUID
 from ..extensions import db
 
@@ -22,7 +22,7 @@ class GstTransaction(db.Model):
     igst = db.Column(db.Numeric(12, 2), nullable=False, default=0.00)
     is_interstate = db.Column(db.Boolean, nullable=False, default=False)
     party_gstin = db.Column(db.String(15))
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
 
 class Expense(db.Model):
@@ -40,8 +40,8 @@ class Expense(db.Model):
     voucher_no = db.Column(db.String(30))
     user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.user_id'), nullable=False)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
         db.CheckConstraint('amount > 0', name='expense_amount_positive'),

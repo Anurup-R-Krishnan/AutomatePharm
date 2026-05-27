@@ -10,7 +10,7 @@ Endpoints:
 import os
 import re
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 import requests
 from flask import Blueprint, jsonify, request
@@ -202,7 +202,7 @@ def create_reorder():
         if trigger:
             n8n_ok = _trigger_n8n(reorder)
             reorder.status = "SENT" if n8n_ok else "FAILED"
-            reorder.sent_at = datetime.utcnow() if n8n_ok else None
+            reorder.sent_at = datetime.now(timezone.utc) if n8n_ok else None
             if not n8n_ok:
                 reorder.notes = "n8n trigger failed — check N8N_WEBHOOK_URL and n8n connectivity"
 
@@ -285,7 +285,7 @@ def n8n_callback():
     reorder.supplier_response = raw_response or reorder.supplier_response
     reorder.provider_message_id = data.get("provider_message_id") or reorder.provider_message_id
     reorder.n8n_conversation_id = data.get("n8n_conversation_id") or reorder.n8n_conversation_id
-    reorder.responded_at = datetime.utcnow()
+    reorder.responded_at = datetime.now(timezone.utc)
 
     try:
         db.session.commit()

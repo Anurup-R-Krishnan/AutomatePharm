@@ -21,17 +21,23 @@ def random_face_vector(seed=0):
 
 
 def test_face_match_success(client):
+    import uuid
+    import random
+    uid = uuid.uuid4().hex[:6]
+    test_name = f"Face Match Test {uid}"
+    
     # Create a customer with a known face embedding
-    vector = random_face_vector(seed=10)
+    test_seed = random.randint(1000, 99999)
+    vector = random_face_vector(seed=test_seed)
     cust_resp = client.post(
         "/api/customers",
-        json={"name": "Face Match Test", "phone": "9000000111", "address": "Test", "face_vector": vector},
+        json={"name": test_name, "phone": "9000000111", "address": "Test", "face_vector": vector},
     )
     assert cust_resp.status_code == 200
 
     # Pull the created customer to get its ID
     customers = client.get("/api/customers").get_json()
-    cust = next(c for c in customers if c["name"] == "Face Match Test")
+    cust = next(c for c in customers if c["name"] == test_name)
     cust_id = cust["id"]
 
     # Attempt a match with the exact same vector – should succeed
@@ -43,7 +49,7 @@ def test_face_match_success(client):
     payload = match_resp.get_json()
     assert payload["status"] == "match"
     assert payload["customer"]["id"] == cust_id
-    assert payload["customer"]["name"] == "Face Match Test"
+    assert payload["customer"]["name"] == test_name
 
 
 def test_face_match_invalid_length(client):

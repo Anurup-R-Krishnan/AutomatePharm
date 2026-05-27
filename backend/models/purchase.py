@@ -1,7 +1,7 @@
 """Domain C — Purchase: purchase_invoices, purchase_invoice_items,
 purchase_returns, purchase_return_items, purchase_payments."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.dialects.postgresql import UUID
 from ..extensions import db
 
@@ -30,8 +30,8 @@ class PurchaseInvoice(db.Model):
     ac_amount = db.Column(db.Numeric(12, 2), nullable=False, default=0.00)
     user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.user_id'), nullable=False)
     remarks = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     line_items = db.relationship('PurchaseInvoiceItem', back_populates='invoice', lazy='dynamic')
 
@@ -63,7 +63,7 @@ class PurchaseInvoiceItem(db.Model):
     gst_amount = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)
     profit_pct = db.Column(db.Numeric(6, 2))
     value = db.Column(db.Numeric(12, 2), nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     invoice = db.relationship('PurchaseInvoice', back_populates='line_items')
 
@@ -83,8 +83,8 @@ class PurchaseReturn(db.Model):
     sgst_amount = db.Column(db.Numeric(12, 2), nullable=False, default=0.00)
     igst_amount = db.Column(db.Numeric(12, 2), nullable=False, default=0.00)
     user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.user_id'), nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     return_items = db.relationship('PurchaseReturnItem', back_populates='purchase_return', lazy='dynamic')
 
@@ -100,7 +100,7 @@ class PurchaseReturnItem(db.Model):
     return_rate = db.Column(db.Numeric(10, 2), nullable=False)
     gst_amount = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)
     return_value = db.Column(db.Numeric(12, 2), nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     purchase_return = db.relationship('PurchaseReturn', back_populates='return_items')
 
@@ -122,8 +122,8 @@ class PurchasePayment(db.Model):
     bank_name = db.Column(db.String(100))
     user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.user_id'), nullable=False)
     remarks = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
         db.CheckConstraint('amount > 0', name='pur_payment_amount_positive'),

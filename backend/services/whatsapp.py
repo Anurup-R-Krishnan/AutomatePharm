@@ -3,7 +3,10 @@ import urllib.request
 import urllib.parse
 import json
 import base64
+import logging
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID", "")
 TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN", "")
@@ -15,7 +18,7 @@ def send_whatsapp_receipt(bill_id: str, phone: str, message: str) -> dict:
     Returns a dictionary with 'status' and 'provider_message_id'.
     """
     if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN or not TWILIO_WHATSAPP_NUMBER:
-        print(f"Twilio credentials not set. Mocking WhatsApp message to {phone}: {message}")
+        logger.info("Twilio credentials not set. Mocking WhatsApp message to %s: %s", phone, message)
         return {
             "status": "sent",
             "provider_message_id": f"mock_msg_{int(datetime.now().timestamp())}"
@@ -52,13 +55,13 @@ def send_whatsapp_receipt(bill_id: str, phone: str, message: str) -> dict:
             }
     except urllib.error.HTTPError as e:
         error_info = e.read().decode("utf-8")
-        print(f"Twilio API Error: {error_info}")
+        logger.error("Twilio API Error: %s", error_info)
         return {
             "status": "failed",
             "provider_message_id": ""
         }
     except Exception as e:
-        print(f"Twilio Request Exception: {str(e)}")
+        logger.error("Twilio Request Exception: %s", str(e))
         return {
             "status": "failed",
             "provider_message_id": ""

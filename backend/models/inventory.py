@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.dialects.postgresql import UUID
 from ..extensions import db
 
@@ -24,8 +24,8 @@ class StockBatch(db.Model):
 
     is_non_movable = db.Column(db.Boolean, nullable=False, default=False)
     last_sale_date = db.Column(db.Date)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
         db.UniqueConstraint('item_id', 'batch_no', 'location_id', name='batch_unique'),
@@ -46,7 +46,7 @@ class StockLedger(db.Model):
     balance_qty = db.Column(db.Integer, nullable=False)
     ref_type = db.Column(db.String(30), nullable=False)
     ref_id = db.Column(db.BigInteger, nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
         db.CheckConstraint(
@@ -67,8 +67,8 @@ class ExpiryAlert(db.Model):
     qty_at_risk = db.Column(db.Integer, nullable=False)
     alert_level = db.Column(db.String(10), nullable=False)  # CRITICAL | WARN | INFO
     is_resolved = db.Column(db.Boolean, nullable=False, default=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
         db.CheckConstraint("alert_level IN ('CRITICAL','WARN','INFO')", name='alert_level_check'),
@@ -81,9 +81,9 @@ class StockAdjustment(db.Model):
     adjustment_id = db.Column(db.BigInteger, primary_key=True)
     stock_batch_id = db.Column(db.Integer, db.ForeignKey('stock_batches.stock_batch_id'), nullable=False)
     item_id = db.Column(db.String(10), db.ForeignKey('items.item_id'), nullable=False)
-    adj_date = db.Column(db.Date, nullable=False, default=datetime.utcnow)
+    adj_date = db.Column(db.Date, nullable=False, default=lambda: datetime.now(timezone.utc))
     qty = db.Column(db.Integer, nullable=False)  # negative for reduction (waste/damage), positive for audit corrections
     reason = db.Column(db.String(50), nullable=False)  # 'DAMAGE', 'EXPIRED', 'THEFT', 'CORRECTION'
     remarks = db.Column(db.Text)
     user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.user_id'), nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))

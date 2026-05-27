@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from ..extensions import db
 
 
@@ -12,8 +12,8 @@ class Salesman(db.Model):
     role_id = db.Column(db.Integer, db.ForeignKey('roles.role_id'), nullable=False)
     salary_per_hr = db.Column(db.Numeric(8, 2), nullable=False, default=0.00)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 class AttendanceLog(db.Model):
@@ -25,7 +25,7 @@ class AttendanceLog(db.Model):
     log_time = db.Column(db.DateTime, nullable=False)
     status = db.Column(db.String(10), nullable=False)  # 'CAME' | 'WENT'
     remarks = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
         db.CheckConstraint("status IN ('CAME','WENT')", name='attendance_status_check'),
@@ -51,5 +51,5 @@ class SalesmanLedger(db.Model):
     net_payable = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)
     is_paid = db.Column(db.Boolean, nullable=False, default=False)
     paid_date = db.Column(db.Date)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

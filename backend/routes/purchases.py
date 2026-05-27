@@ -1,4 +1,4 @@
-from datetime import datetime, date as date_type
+from datetime import datetime, date as date_type, timezone
 
 from flask import Blueprint, jsonify, request
 from sqlalchemy import func
@@ -122,16 +122,16 @@ def _get_or_create_item_defaults(gst_slab_id: int):
 
 def _purchase_to_compat(purchase: PurchaseInvoice) -> dict:
     """Serialize a PurchaseInvoice to the flat dict the frontend expects."""
-    supplier = Supplier.query.get(purchase.supplier_id)
+    supplier = db.session.get(Supplier, purchase.supplier_id)
 
     item_names = []
     batch_no = ""
     expiry_str = ""
     for li in purchase.line_items:
-        item = Item.query.get(li.item_id)
+        item = db.session.get(Item, li.item_id)
         if item:
             item_names.append(item.item_name)
-        batch = StockBatch.query.get(li.stock_batch_id) if li.stock_batch_id else None
+        batch = db.session.get(StockBatch, li.stock_batch_id) if li.stock_batch_id else None
         if batch:
             batch_no = batch.batch_no
             expiry_str = str(batch.expiry_date)
@@ -168,7 +168,7 @@ def _apply_purchase_receipt(
 ):
     """Move a purchase into stock exactly once when it is received."""
     for li in purchase.line_items:
-        item = Item.query.get(li.item_id)
+        item = db.session.get(Item, li.item_id)
         if not item:
             continue
 
@@ -176,7 +176,7 @@ def _apply_purchase_receipt(
         if qty <= 0:
             continue
 
-        batch = StockBatch.query.get(li.stock_batch_id) if li.stock_batch_id else None
+        batch = db.session.get(StockBatch, li.stock_batch_id) if li.stock_batch_id else None
         batch_no = (batch.batch_no if batch else "") or fallback_batch_no or "__default__"
 
         expiry_date = batch.expiry_date if batch and batch.expiry_date else date_type(2099, 12, 31)
@@ -229,7 +229,7 @@ def _get_or_create_supplier(name: str) -> Supplier:
         code = name.strip()[:15].upper().replace(" ", "_")
         existing_code = Supplier.query.filter_by(supplier_code=code).first()
         if existing_code:
-            code = code[:12] + "_" + str(int(datetime.utcnow().timestamp()))[-3:]
+            code = code[:12] + "_" + str(int(datetime.now(timezone.utc).timestamp()))[-3:]
         supplier = Supplier(
             supplier_code=code,
             supplier_name=name.strip(),
@@ -241,9 +241,9 @@ def _get_or_create_supplier(name: str) -> Supplier:
 
 def _next_item_id() -> str:
     """Generate a unique Item.item_id that fits the String(10) schema."""
-    base = int(datetime.utcnow().timestamp() * 1000) % 100000000
+    base = int(datetime.now(timezone.utc).timestamp() * 1000) % 100000000
     candidate = f"M{base:08d}"
-    while Item.query.get(candidate):
+    while db.session.get(Item, candidate):
         base = (base + 1) % 100000000
         candidate = f"M{base:08d}"
     return candidate
@@ -299,7 +299,7 @@ def add_purchase():
 
         # Parse a ref_no from the legacy id (e.g. "PO-001"), or generate one
         legacy_id = str(data.get("id", "")).strip()
-        ref_no = legacy_id or f"PO-{int(datetime.utcnow().timestamp())}"
+        ref_no = legacy_id or f"PO-{int(datetime.now(timezone.utc).timestamp())}"
 
         status = _normalize_purchase_status(data.get("status"))
 
@@ -307,7 +307,7 @@ def add_purchase():
         existing = None
         if legacy_id.startswith("P-"):
             real_id = legacy_id.replace("P-", "").strip()
-            existing = PurchaseInvoice.query.get(real_id)
+            existing = db.session.get(PurchaseInvoice, real_id)
 
         if existing:
             previous_status = _normalize_purchase_status(existing.remarks)

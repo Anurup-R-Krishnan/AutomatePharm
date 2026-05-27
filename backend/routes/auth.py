@@ -1,6 +1,7 @@
 # pyrefly: ignore [missing-import]
 from flask import Blueprint, request, jsonify, session, render_template, redirect, url_for
 from functools import wraps
+import logging
 # pyrefly: ignore [missing-import]
 from werkzeug.security import check_password_hash, generate_password_hash
 from sqlalchemy import func
@@ -8,6 +9,8 @@ import json
 
 from ..extensions import db, limiter
 from ..models.core import User, Role
+
+logger = logging.getLogger(__name__)
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -146,7 +149,7 @@ def add_user():
                     vd = data["face_vector"]
                     user.face_embedding = json.loads(vd) if isinstance(vd, str) else vd
                 except Exception as e:
-                    print(f"DEBUG ERROR Users (Update): {e}")
+                    logger.warning("Failed to parse face_vector on user update: %s", e)
                     pass
             
             if password:
@@ -178,7 +181,7 @@ def add_user():
                     vd = data["face_vector"]
                     user.face_embedding = json.loads(vd) if isinstance(vd, str) else vd
                 except Exception as e:
-                    print(f"DEBUG ERROR Users (Create): {e}")
+                    logger.warning("Failed to parse face_vector on user create: %s", e)
                     pass
             db.session.add(user)
         db.session.commit()

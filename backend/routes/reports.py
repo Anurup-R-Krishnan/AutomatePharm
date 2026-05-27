@@ -77,21 +77,21 @@ def _current_page_user():
 def api_invoice(bill_id):
     """Return full invoice data for a single bill."""
     real_id = str(bill_id).replace("B-", "").strip()
-    bill = SalesBill.query.get(real_id)
+    bill = db.session.get(SalesBill, real_id)
     if not bill:
         return _json_error("Bill not found", 404, {"id": bill_id})
 
-    customer = Customer.query.get(bill.customer_id) if bill.customer_id else None
-    doctor = Doctor.query.get(bill.doctor_id) if bill.doctor_id else None
-    bt = BillType.query.get(bill.bill_type_id) if bill.bill_type_id else None
+    customer = db.session.get(Customer, bill.customer_id) if bill.customer_id else None
+    doctor = db.session.get(Doctor, bill.doctor_id) if bill.doctor_id else None
+    bt = db.session.get(BillType, bill.bill_type_id) if bill.bill_type_id else None
 
     line_items = []
     for idx, bi in enumerate(bill.items, start=1):
-        item = Item.query.get(bi.item_id)
-        batch = StockBatch.query.get(bi.stock_batch_id) if bi.stock_batch_id else None
+        item = db.session.get(Item, bi.item_id)
+        batch = db.session.get(StockBatch, bi.stock_batch_id) if bi.stock_batch_id else None
         hsn = None
         if item and item.hsn_id:
-            hsn = HsnCode.query.get(item.hsn_id)
+            hsn = db.session.get(HsnCode, item.hsn_id)
 
         line_items.append({
             "sno": idx,
@@ -162,18 +162,18 @@ def page_invoice(bill_id):
 @reports_bp.route("/api/reports/credit-note/<int:return_id>", methods=["GET"])
 def api_credit_note(return_id):
     """Return credit note data for a sales return."""
-    sr = SalesReturn.query.get(return_id)
+    sr = db.session.get(SalesReturn, return_id)
     if not sr:
         return _json_error("Sales return not found", 404, {"id": return_id})
 
-    original_bill = SalesBill.query.get(sr.original_bill_id) if sr.original_bill_id else None
-    customer = Customer.query.get(sr.customer_id) if sr.customer_id else None
-    reason = ReturnReason.query.get(sr.reason_id) if sr.reason_id else None
+    original_bill = db.session.get(SalesBill, sr.original_bill_id) if sr.original_bill_id else None
+    customer = db.session.get(Customer, sr.customer_id) if sr.customer_id else None
+    reason = db.session.get(ReturnReason, sr.reason_id) if sr.reason_id else None
 
     items = []
     for idx, ri in enumerate(sr.return_items, start=1):
-        item = Item.query.get(ri.item_id)
-        batch = StockBatch.query.get(ri.stock_batch_id) if ri.stock_batch_id else None
+        item = db.session.get(Item, ri.item_id)
+        batch = db.session.get(StockBatch, ri.stock_batch_id) if ri.stock_batch_id else None
         items.append({
             "sno": idx,
             "item_id": ri.item_id,
@@ -228,7 +228,7 @@ def page_credit_note(return_id):
 @reports_bp.route("/api/reports/customer-statement/<int:customer_id>", methods=["GET"])
 def api_customer_statement(customer_id):
     """Return a ledger statement with opening/closing balance for a customer."""
-    customer = Customer.query.get(customer_id)
+    customer = db.session.get(Customer, customer_id)
     if not customer:
         return _json_error("Customer not found", 404, {"id": customer_id})
 
@@ -342,7 +342,7 @@ def page_customer_statement(customer_id):
 @reports_bp.route("/api/reports/prescription-history/<int:customer_id>", methods=["GET"])
 def api_prescription_history(customer_id):
     """Return full prescription register entries for a customer."""
-    customer = Customer.query.get(customer_id)
+    customer = db.session.get(Customer, customer_id)
     if not customer:
         return _json_error("Customer not found", 404, {"id": customer_id})
 
@@ -359,8 +359,8 @@ def api_prescription_history(customer_id):
 
     entries = []
     for idx, rx in enumerate(rows, start=1):
-        item = Item.query.get(rx.item_id)
-        doctor = Doctor.query.get(rx.doctor_id) if rx.doctor_id else None
+        item = db.session.get(Item, rx.item_id)
+        doctor = db.session.get(Doctor, rx.doctor_id) if rx.doctor_id else None
         entries.append({
             "sno": idx,
             "rx_date": rx.rx_date.strftime("%d/%m/%Y"),
@@ -441,7 +441,7 @@ def api_daily_sales():
     total_items_sold = 0
 
     for b in bills:
-        customer = Customer.query.get(b.customer_id) if b.customer_id else None
+        customer = db.session.get(Customer, b.customer_id) if b.customer_id else None
         items_count = SalesBillItem.query.filter_by(bill_id=b.bill_id).count()
         total_items_sold += items_count
 
@@ -524,8 +524,8 @@ def api_expiry_stock():
     summary = {"expired": 0, "within_30": 0, "within_60": 0, "within_90": 0, "total_at_risk_value": 0}
 
     for sb in batches:
-        item = Item.query.get(sb.item_id)
-        mfr = Manufacturer.query.get(sb.manufacturer_id) if sb.manufacturer_id else None
+        item = db.session.get(Item, sb.item_id)
+        mfr = db.session.get(Manufacturer, sb.manufacturer_id) if sb.manufacturer_id else None
         days_left = (sb.expiry_date - today).days
         risk_value = float(sb.mrp) * sb.current_qty
 
@@ -592,8 +592,8 @@ def api_low_stock():
         ).filter(StockBatch.item_id == item.item_id).scalar()
 
         if total_qty <= item.reorder_level:
-            cat = ProductCategory.query.get(item.category_id) if item.category_id else None
-            mfr = Manufacturer.query.get(item.manufacturer_id) if item.manufacturer_id else None
+            cat = db.session.get(ProductCategory, item.category_id) if item.category_id else None
+            mfr = db.session.get(Manufacturer, item.manufacturer_id) if item.manufacturer_id else None
             low_stock_items.append({
                 "item_id": item.item_id,
                 "item_name": item.item_name,
@@ -640,12 +640,12 @@ def api_inventory_valuation():
     items_list = []
 
     for sb in batches:
-        item = Item.query.get(sb.item_id)
-        mfr = Manufacturer.query.get(sb.manufacturer_id) if sb.manufacturer_id else None
+        item = db.session.get(Item, sb.item_id)
+        mfr = db.session.get(Manufacturer, sb.manufacturer_id) if sb.manufacturer_id else None
         cat = None
         cat_name = "Uncategorized"
         if item and item.category_id:
-            cat = ProductCategory.query.get(item.category_id)
+            cat = db.session.get(ProductCategory, item.category_id)
             cat_name = cat.category_name if cat else "Uncategorized"
 
         mrp_val = float(sb.mrp) * sb.current_qty
@@ -837,7 +837,7 @@ def api_purchase_register():
     grand_total = 0
 
     for pi in invoices:
-        supplier = Supplier.query.get(pi.supplier_id)
+        supplier = db.session.get(Supplier, pi.supplier_id)
         sup_name = supplier.supplier_name if supplier else "Unknown"
         items_count = pi.line_items.count()
         net = float(pi.net_amount)
@@ -1248,7 +1248,7 @@ def api_customer_retention():
         items_tracked = []
         
         for p in patterns:
-            item = Item.query.get(p.item_id)
+            item = db.session.get(Item, p.item_id)
             item_name = item.item_name if item else "Unknown Item"
             items_tracked.append(f"{item_name} (Avg: {int(p.avg_quantity)})")
             

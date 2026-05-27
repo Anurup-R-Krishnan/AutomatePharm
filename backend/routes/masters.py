@@ -1,5 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import json
+import logging
 from flask import Blueprint, jsonify, request
 from sqlalchemy import func
 
@@ -11,6 +12,7 @@ from ..analytics_logic import get_personalized_suggestions
 
 
 masters_bp = Blueprint("masters", __name__)
+logger = logging.getLogger(__name__)
 
 
 def json_error(message: str, status_code: int = 400, details=None):
@@ -68,7 +70,7 @@ def face_match():
                 min_dist = dist
                 best_match = c
         except Exception as e:
-            print(f"Distance calculation error for customer {c.customer_id}: {e}")
+            logger.warning("Distance calculation error for customer %s: %s", c.customer_id, e)
             continue
 
     if best_match and min_dist < threshold:
@@ -111,7 +113,7 @@ def face_match():
 
 @masters_bp.route("/api/customers/<int:id>/face", methods=["PATCH"])
 def update_customer_face(id):
-    customer = Customer.query.get(id)
+    customer = db.session.get(Customer, id)
     if not customer:
         return json_error("Customer not found", 404)
     
@@ -123,7 +125,7 @@ def update_customer_face(id):
     
     try:
         customer.face_embedding = face_vector
-        customer.last_face_scan_at = datetime.utcnow()
+        customer.last_face_scan_at = datetime.now(timezone.utc)
         db.session.commit()
         return jsonify({"status": "success", "message": "Face registered successfully"})
     except Exception as err:
@@ -136,7 +138,7 @@ def _supplier_code(name: str) -> str:
     exists = Supplier.query.filter_by(supplier_code=base).first()
     if not exists:
         return base
-    return f"{base[:14]}_{int(datetime.utcnow().timestamp()) % 100000}"
+    return f"{base[:14]}_{int(datetime.now(timezone.utc).timestamp()) % 100000}"
 
 
 def _ensure_payment_context() -> tuple[str, int]:
@@ -252,7 +254,7 @@ def add_supplier():
         supplier = None
         supplier_id = data.get("id")
         if supplier_id:
-            supplier = Supplier.query.get(supplier_id)
+            supplier = db.session.get(Supplier, supplier_id)
         if not supplier:
             supplier = Supplier(
                 supplier_code=_supplier_code(data["name"]),
@@ -323,7 +325,7 @@ def add_customer():
         customer_id = data.get("id")
         is_new = False
         if customer_id:
-            customer = Customer.query.get(customer_id)
+            customer = db.session.get(Customer, customer_id)
         if not customer:
             customer = Customer(customer_name=data["name"], phone=data["phone"])
             db.session.add(customer)
@@ -334,7 +336,7 @@ def add_customer():
         if family_head_id in (None, "", "null"):
             customer.family_head_id = None
         else:
-            resolved_head = Customer.query.get(family_head_id)
+            resolved_head = db.session.get(Customer, family_head_id)
             if not resolved_head:
                 return json_error("Family head customer not found", 404)
             if customer.customer_id and int(resolved_head.customer_id) == int(customer.customer_id):
@@ -356,11 +358,11 @@ def add_customer():
             customer.outstanding_balance = initial_bal
             # Create a virtual debit note for the opening balance
             user_id, _ = _ensure_payment_context()
-            voucher_no = f"OB-{int(datetime.utcnow().timestamp())}"
+            voucher_no = f"OB-{int(datetime.now(timezone.utc).timestamp())}"
             opening_voucher = BillingVoucher(
                 voucher_type="debit_note",
                 voucher_no=voucher_no,
-                voucher_date=datetime.utcnow().date(),
+                voucher_date=datetime.now(timezone.utc).date(),
                 customer_code=str(customer.customer_id),
                 amount=initial_bal,
                 remarks="Opening Balance",
@@ -378,17 +380,12 @@ def add_customer():
                     customer.face_embedding = json.loads(vector_data)
                 else:
                     customer.face_embedding = vector_data
-                print(f"DEBUG: Saved face embedding for customer {customer.customer_name}. Type: {type(customer.face_embedding)}")
-                with open("face_debug.txt", "a") as f:
-                    f.write(f"SAVED FACE: {customer.customer_name}, Vector Len: {len(customer.face_embedding)}\n")
+                logger.debug("Saved face embedding for customer %s. Type: %s", customer.customer_name, type(customer.face_embedding))
             except Exception as e:
-                print(f"DEBUG ERROR: Failed to parse face_vector: {e}")
-                with open("face_debug.txt", "a") as f:
-                    f.write(f"ERROR: {str(e)}\n")
+                logger.warning("Failed to parse face_vector: %s", e)
                 pass
         else:
-             with open("face_debug.txt", "a") as f:
-                f.write(f"NO FACE DATA in request for {customer.customer_name}. Keys: {list(data.keys())}\n")
+            logger.debug("NO FACE DATA in request for %s. Keys: %s", customer.customer_name, list(data.keys()))
 
         db.session.commit()
         return jsonify({"status": "success"})
@@ -402,7 +399,7 @@ def add_customer():
 
 @masters_bp.route("/api/customers/<id>/family", methods=["GET"])
 def get_customer_family(id):
-    customer = Customer.query.get(id)
+    customer = db.session.get(Customer, id)
     if not customer:
         return json_error("Customer not found", 404)
 
@@ -448,7 +445,7 @@ def get_customer_suggestions(id):
     - days_back: Look back window for analysis (default: 90)
     - exclude_recent_days: Exclude items purchased recently (default: 30)
     """
-    customer = Customer.query.get(id)
+    customer = db.session.get(Customer, id)
     if not customer:
         return json_error("Customer not found", 404)
     
@@ -506,7 +503,7 @@ def add_doctor():
         doctor = None
         doctor_id = data.get("id")
         if doctor_id:
-            doctor = Doctor.query.get(doctor_id)
+            doctor = db.session.get(Doctor, doctor_id)
         if not doctor:
             doctor = Doctor(doctor_name=data["name"])
             db.session.add(doctor)
@@ -525,7 +522,7 @@ def add_doctor():
 
 @masters_bp.route("/api/suppliers/<id>", methods=["DELETE"])
 def delete_supplier(id):
-    supplier = Supplier.query.get(id)
+    supplier = db.session.get(Supplier, id)
     if supplier:
         db.session.delete(supplier)
         db.session.commit()
@@ -535,7 +532,7 @@ def delete_supplier(id):
 @masters_bp.route("/api/customers/<id>", methods=["DELETE"])
 def delete_customer(id):
     try:
-        customer = Customer.query.get(id)
+        customer = db.session.get(Customer, id)
         if customer:
             # Import models locally to avoid circular imports if any
             from ..models.ai import AiFaceLog, WantedList, CustomerPurchasePattern
@@ -565,7 +562,7 @@ def delete_customer(id):
 
 @masters_bp.route("/api/customers/<id>/ledger", methods=["GET"])
 def get_customer_ledger(id):
-    customer = Customer.query.get(id)
+    customer = db.session.get(Customer, id)
     if not customer:
         return json_error("Customer not found", 404)
 
@@ -635,7 +632,7 @@ def record_customer_payment(id):
         return json_error("Amount must be greater than zero", 400)
     
     try:
-        customer = Customer.query.get(id)
+        customer = db.session.get(Customer, id)
         if not customer:
             return json_error("Customer not found", 404)
 
@@ -648,7 +645,7 @@ def record_customer_payment(id):
         receipt = ReceiptPayment(
             customer_id=customer.customer_id,
             bill_id=None,
-            receipt_date=datetime.utcnow().date(),
+            receipt_date=datetime.now(timezone.utc).date(),
             amount=amount,
             payment_mode_id=payment_mode_id,
             user_id=user_id,
@@ -665,7 +662,7 @@ def record_customer_payment(id):
 
 @masters_bp.route("/api/doctors/<id>", methods=["DELETE"])
 def delete_doctor(id):
-    doctor = Doctor.query.get(id)
+    doctor = db.session.get(Doctor, id)
     if doctor:
         db.session.delete(doctor)
         db.session.commit()

@@ -1,7 +1,9 @@
-from datetime import datetime, date as date_type
+from datetime import datetime, date as date_type, timezone
 
 from flask import Blueprint, jsonify, request, render_template, session
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
+import logging
 
 from ..extensions import db
 from .auth import login_required
@@ -13,6 +15,7 @@ from ..analytics_logic import update_customer_purchase_pattern
 from ..services.whatsapp import send_whatsapp_receipt
 
 bills_bp = Blueprint("bills", __name__)
+logger = logging.getLogger(__name__)
 
 
 def _json_error(message, code=400, details=None):
@@ -160,7 +163,7 @@ def _cancel_bill_record(bill: SalesBill, reason: str) -> None:
     _apply_stock_delta(bill.bill_id, cart_items, +1)
 
     if bill.customer_id:
-        customer = Customer.query.get(bill.customer_id)
+        customer = db.session.get(Customer, bill.customer_id)
         if customer:
             customer.outstanding_balance = max(
                 0,
@@ -169,7 +172,7 @@ def _cancel_bill_record(bill: SalesBill, reason: str) -> None:
 
     bill.is_cancelled = True
     bill.cancel_reason = reason
-    bill.cancelled_at = datetime.utcnow()
+    bill.cancelled_at = datetime.now(timezone.utc)
 
 
 def _apply_stock_delta(bill_id: int, items: list, multiplier: int) -> None:
@@ -302,7 +305,7 @@ def get_billing_vouchers():
 
 @bills_bp.route("/api/billing/vouchers/<int:voucher_id>", methods=["GET"])
 def get_billing_voucher(voucher_id):
-    row = BillingVoucher.query.get(voucher_id)
+    row = db.session.get(BillingVoucher, voucher_id)
     if not row:
         return _json_error("Voucher not found", 404, {"id": voucher_id})
     return jsonify(_voucher_to_compat(row))
@@ -329,7 +332,7 @@ def save_billing_voucher():
         row = None
         voucher_id = data.get("id")
         if voucher_id:
-            row = BillingVoucher.query.get(voucher_id)
+            row = db.session.get(BillingVoucher, voucher_id)
             if not row:
                 return _json_error("Voucher not found", 404, {"id": voucher_id})
         else:
@@ -360,14 +363,14 @@ def save_billing_voucher():
         linked_bill_id = str(data.get("linked_bill_id", "")).strip()
         if linked_bill_id:
             real_bill_id = linked_bill_id.replace("B-", "").strip()
-            linked_bill = SalesBill.query.get(real_bill_id)
+            linked_bill = db.session.get(SalesBill, real_bill_id)
             row.linked_bill_id = linked_bill.bill_id if linked_bill else None
         else:
             row.linked_bill_id = None
 
         customer_code = row.customer_code
         if customer_code.isdigit():
-            customer = Customer.query.get(int(customer_code))
+            customer = db.session.get(Customer, int(customer_code))
             if customer and not row.party_name:
                 row.party_name = customer.customer_name
 
@@ -383,7 +386,7 @@ def save_billing_voucher():
 
 @bills_bp.route("/api/billing/vouchers/<int:voucher_id>", methods=["DELETE"])
 def delete_billing_voucher(voucher_id):
-    row = BillingVoucher.query.get(voucher_id)
+    row = db.session.get(BillingVoucher, voucher_id)
     if not row:
         return _json_error("Voucher not found", 404, {"id": voucher_id})
     try:
@@ -398,24 +401,24 @@ def delete_billing_voucher(voucher_id):
 @bills_bp.route("/api/bills/<bill_id>/cancel-preview", methods=["GET"])
 def get_cancel_bill_preview(bill_id):
     real_id = bill_id.replace("B-", "").strip()
-    bill = SalesBill.query.get(real_id)
+    bill = db.session.get(SalesBill, real_id)
     if not bill or bill.is_cancelled:
         return _json_error("Bill not found", 404, {"id": bill_id})
 
-    customer = Customer.query.get(bill.customer_id) if bill.customer_id else None
-    doctor = Doctor.query.get(bill.doctor_id) if bill.doctor_id else None
+    customer = db.session.get(Customer, bill.customer_id) if bill.customer_id else None
+    doctor = db.session.get(Doctor, bill.doctor_id) if bill.doctor_id else None
     salesman_name = "System"
     if bill.salesman_id:
         from ..models.hr import Salesman
 
-        salesman = Salesman.query.get(bill.salesman_id)
+        salesman = db.session.get(Salesman, bill.salesman_id)
         if salesman and salesman.salesman_name:
             salesman_name = salesman.salesman_name
 
     items = []
     for idx, bi in enumerate(bill.items, start=1):
-        item = Item.query.get(bi.item_id)
-        batch = StockBatch.query.get(bi.stock_batch_id) if bi.stock_batch_id else None
+        item = db.session.get(Item, bi.item_id)
+        batch = db.session.get(StockBatch, bi.stock_batch_id) if bi.stock_batch_id else None
         items.append({
             "line_no": idx,
             "item_code": bi.item_id,
@@ -444,7 +447,7 @@ def get_cancel_bill_preview(bill_id):
 @bills_bp.route("/api/bills/<bill_id>/cancel", methods=["POST"])
 def cancel_bill_with_reason(bill_id):
     real_id = bill_id.replace("B-", "").strip()
-    bill = SalesBill.query.get(real_id)
+    bill = db.session.get(SalesBill, real_id)
     if not bill:
         return _json_error("Bill not found", 404, {"id": bill_id})
     if bill.is_cancelled:
@@ -545,7 +548,7 @@ def get_bills():
 def get_bill(bill_id):
     # frontend uses "B-<int>" format
     real_id = bill_id.replace("B-", "").strip()
-    bill = SalesBill.query.get(real_id)
+    bill = db.session.get(SalesBill, real_id)
     if not bill or bill.is_cancelled:
         return _json_error("Bill not found", 404, {"id": bill_id})
     return jsonify(_bill_to_compat(bill))
@@ -585,7 +588,7 @@ def save_bill():
                 db.session.flush()
             
             if "is_chronic" in data:
-                print(f"UPDATING CHRONIC STATUS for {customer.customer_name}: {data['is_chronic']}")
+                logger.debug("UPDATING CHRONIC STATUS for %s: %s", customer.customer_name, data['is_chronic'])
                 customer.is_chronic_patient = (data["is_chronic"] is True)
                 db.session.add(customer)
                 db.session.flush()
@@ -603,7 +606,7 @@ def save_bill():
                 db.session.flush()
             doctor_id = doc.doctor_id
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         gross   = float(data.get("sub", 0))
         disc_amt = float(data.get("disc", 0))
         tax_amt  = float(data.get("tax", 0))
@@ -641,7 +644,7 @@ def save_bill():
             item_id = str(cart_item.get("id", "")).strip()
             qty_needed = int(cart_item.get("qty", 1) or 1)
             price = float(cart_item.get("p", 0) or 0)
-            item_obj = Item.query.get(item_id)
+            item_obj = db.session.get(Item, item_id)
             if not item_obj: continue
 
             # Find the primary batch for this item
@@ -755,7 +758,7 @@ def save_bill():
 @bills_bp.route("/api/bills/<bill_id>", methods=["PATCH", "PUT"])
 def update_bill(bill_id):
     real_id = bill_id.replace("B-", "").strip()
-    bill = SalesBill.query.get(real_id)
+    bill = db.session.get(SalesBill, real_id)
     if not bill or bill.is_cancelled:
         return _json_error("Bill not found", 404, {"id": bill_id})
 
@@ -785,7 +788,7 @@ def update_bill(bill_id):
 @bills_bp.route("/api/bills/<bill_id>", methods=["DELETE"])
 def delete_bill(bill_id):
     real_id = bill_id.replace("B-", "").strip()
-    bill = SalesBill.query.get(real_id)
+    bill = db.session.get(SalesBill, real_id)
     if not bill:
         return _json_error("Bill not found", 404, {"id": bill_id})
 
