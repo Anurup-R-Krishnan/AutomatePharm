@@ -16,7 +16,7 @@ import requests
 from flask import Blueprint, jsonify, request
 
 from ..extensions import db
-from ..models.reorder import ReorderRequest, REORDER_STATUSES
+from ..models.reorder_request import ReorderRequest, REORDER_STATUSES
 
 logger = logging.getLogger(__name__)
 

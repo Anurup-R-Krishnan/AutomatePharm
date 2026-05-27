@@ -11,7 +11,7 @@ from .finance import finance_bp
 from .analytics import analytics_bp
 from .wanted_list import wanted_list_bp
 from .reports import reports_bp
-from .reorders import reorders_bp
+from .reorder_routes import reorders_bp
 
 
 def register_blueprints(app: Flask) -> None:

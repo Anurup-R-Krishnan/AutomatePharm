@@ -50,4 +50,4 @@ from .system import AuditLog, SystemSetting
 
 
 # Reorder / Supplier Conversation
-from .reorder import ReorderRequest
+from .reorder_request import ReorderRequest
