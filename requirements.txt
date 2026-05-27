@@ -10,3 +10,4 @@ marshmallow-sqlalchemy
 pytest
 flask-limiter
 requests
+xlrd

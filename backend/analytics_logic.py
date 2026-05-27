@@ -5,7 +5,6 @@ from .models.sales import SalesBill, SalesBillItem
 from .models.core import Item, Customer
 from .models.inventory import StockBatch
 from .models.ai import CustomerPurchasePattern
-import math
 
 def calculate_linear_regression(data):
     """
