@@ -70,8 +70,18 @@ class ReorderRequest(db.Model):
     notes = db.Column(db.Text, nullable=True)
 
     # --- Relationships ---
-    supplier = db.relationship("Supplier", foreign_keys=[supplier_id])
-    location = db.relationship("Location", foreign_keys=[location_id])
+    supplier = db.relationship(
+        "Supplier",
+        foreign_keys=[supplier_id],
+        lazy="select",
+        overlaps="reorder_requests",
+    )
+    location = db.relationship(
+        "Location",
+        foreign_keys=[location_id],
+        lazy="select",
+        overlaps="reorder_requests",
+    )
 
     __table_args__ = (
         db.CheckConstraint(

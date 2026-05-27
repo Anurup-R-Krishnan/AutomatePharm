@@ -264,7 +264,7 @@ def n8n_callback():
         )
 
     # --- Fetch & update ---
-    reorder = ReorderRequest.query.get(int(data["reorder_id"]))
+    reorder = db.session.get(ReorderRequest, int(data["reorder_id"]))
     if not reorder:
         return _json_error("Reorder not found", 404)
 
@@ -304,7 +304,7 @@ def n8n_callback():
 @reorders_bp.route("/api/reorders/<int:reorder_id>/conversation", methods=["GET"])
 def get_conversation(reorder_id: int):
     """Return full reorder record + conversation details for the UI."""
-    reorder = ReorderRequest.query.get(reorder_id)
+    reorder = db.session.get(ReorderRequest, reorder_id)
     if not reorder:
         return _json_error("Reorder not found", 404)
 
