@@ -47,3 +47,7 @@ from .finance import GstTransaction, Expense
 
 # System / Audit
 from .system import AuditLog, SystemSetting
+
+
+# Reorder / Supplier Conversation
+from .reorder import ReorderRequest
