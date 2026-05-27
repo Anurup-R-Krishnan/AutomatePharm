@@ -29,7 +29,7 @@ from ..models.core import (
     ProductCategory, Supplier,
 )
 from ..models.inventory import StockBatch, ExpiryAlert
-from ..models.finance import Expense, GstTransaction
+from ..models.finance import Expense
 from ..models.purchase import PurchaseInvoice, PurchaseInvoiceItem, PurchasePayment
 from ..models.hr import Salesman, AttendanceLog, SalesmanLedger
 from ..models.ai import AiFaceLog, CustomerPurchasePattern, PrescriptionOcrLog, WantedList

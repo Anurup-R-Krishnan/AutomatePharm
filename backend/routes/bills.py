@@ -2,7 +2,6 @@ from datetime import datetime, date as date_type, timezone
 
 from flask import Blueprint, jsonify, request, render_template, session
 from sqlalchemy import func
-from sqlalchemy.exc import IntegrityError
 import logging
 
 from ..extensions import db
